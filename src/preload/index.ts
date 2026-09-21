@@ -5,21 +5,28 @@ import {
   type PermissionRequest,
   type SessionUpdateEvent
 } from '../shared/types'
-
 const grok = {
   getStatus: () => ipcRenderer.invoke(IPC.getStatus),
   getSettings: () => ipcRenderer.invoke(IPC.getSettings),
   setSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke(IPC.setSettings, patch),
+  getAccount: () => ipcRenderer.invoke(IPC.getAccount),
+  getUsage: (sessionId?: string) => ipcRenderer.invoke(IPC.getUsage, sessionId),
+  listModels: () => ipcRenderer.invoke(IPC.listModels),
   pickProject: () => ipcRenderer.invoke(IPC.pickProject),
   openProject: (cwd: string) => ipcRenderer.invoke(IPC.openProject, cwd),
+  removeProject: (cwd: string) => ipcRenderer.invoke(IPC.removeProject, cwd),
   listSessions: (cwd?: string) => ipcRenderer.invoke(IPC.listSessions, cwd),
+  loadTranscript: (sessionId: string, cwd?: string) =>
+    ipcRenderer.invoke(IPC.loadTranscript, { sessionId, cwd }),
   newChat: () => ipcRenderer.invoke(IPC.newChat),
   loadSession: (sessionId: string) => ipcRenderer.invoke(IPC.loadSession, sessionId),
+  deleteSession: (sessionId: string) => ipcRenderer.invoke(IPC.deleteSession, sessionId),
   sendPrompt: (text: string) => ipcRenderer.invoke(IPC.sendPrompt, text),
   cancel: () => ipcRenderer.invoke(IPC.cancel),
   respondPermission: (requestId: string, optionId: string | null) =>
     ipcRenderer.invoke(IPC.respondPermission, { requestId, optionId }),
   login: () => ipcRenderer.invoke(IPC.login),
+  logout: () => ipcRenderer.invoke(IPC.logout),
   windowMinimize: () => ipcRenderer.invoke(IPC.windowMinimize),
   windowMaximize: () => ipcRenderer.invoke(IPC.windowMaximize),
   windowClose: () => ipcRenderer.invoke(IPC.windowClose),
@@ -32,6 +39,8 @@ const grok = {
     subscribe(IPC.eventStop, listener),
   onSession: (listener: (payload: { sessionId: string; cwd: string }) => void) =>
     subscribe(IPC.eventSession, listener),
+  onAccount: (listener: (payload: unknown) => void) => subscribe(IPC.eventAccount, listener),
+  onUsage: (listener: (payload: unknown) => void) => subscribe(IPC.eventUsage, listener),
   onMenuOpenProject: (listener: () => void) => subscribe('menu:open-project', listener),
   onMenuNewChat: (listener: () => void) => subscribe('menu:new-chat', listener)
 }

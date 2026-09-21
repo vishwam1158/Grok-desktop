@@ -1,9 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import {
-  addUserMessage,
-  applySessionUpdate,
-  type ChatMessage
-} from '../src/renderer/src/lib/conversation'
+import { addUserMessage, applySessionUpdate, type ChatMessage } from '../src/shared/conversation'
 
 describe('conversation reducer', () => {
   it('appends user messages', () => {
@@ -41,6 +37,22 @@ describe('conversation reducer', () => {
     })
     expect(messages.map((message) => message.role)).toEqual(['user', 'assistant'])
     expect(messages[0]).toMatchObject({ role: 'user', text: 'fix the bug' })
+  })
+
+  it('replays a later user turn after assistant output', () => {
+    let messages: ChatMessage[] = applySessionUpdate([], {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'first' }
+    })
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'agent_message_chunk',
+      content: { type: 'text', text: 'ok' }
+    })
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'second' }
+    })
+    expect(messages.map((message) => message.role)).toEqual(['user', 'assistant', 'user'])
   })
 
   it('starts a new assistant after a later user prompt', () => {

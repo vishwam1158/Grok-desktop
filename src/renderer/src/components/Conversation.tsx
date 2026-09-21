@@ -27,6 +27,7 @@ export function Conversation(): React.JSX.Element {
   const messages = useAppStore((state) => state.messages)
   const projectPath = useAppStore((state) => state.projectPath)
   const connection = useAppStore((state) => state.status.connection)
+  const showThinking = useAppStore((state) => state.settings.showThinking)
   const bottom = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -64,6 +65,7 @@ export function Conversation(): React.JSX.Element {
             <div key={message.id} className="flex flex-col gap-3">
               {message.parts.map((part, index) => {
                 if (part.type === 'thought') {
+                  if (!showThinking) return null
                   return (
                     <div key={index} className="text-[13px] italic text-[var(--thought)]">
                       {part.text}

@@ -5,6 +5,7 @@ const isMac = navigator.userAgent.includes('Mac')
 
 export function Titlebar(): React.JSX.Element {
   const projectPath = useAppStore((state) => state.projectPath)
+  const account = useAppStore((state) => state.account)
   const setSettingsOpen = useAppStore((state) => state.setSettingsOpen)
 
   return (
@@ -14,6 +15,9 @@ export function Titlebar(): React.JSX.Element {
         <span className="truncate">{projectPath ?? 'Grok Desktop'}</span>
       </div>
       <div className="no-drag flex items-center gap-2">
+        {account.subscriptionTier ? (
+          <span className="text-[11px] text-[var(--text-muted)]">{account.subscriptionTier}</span>
+        ) : null}
         <button
           className="rounded-md px-2 py-1 text-xs text-[var(--text-muted)] hover:bg-[var(--bg-hover)] hover:text-[var(--text)]"
           onClick={() => setSettingsOpen(true)}

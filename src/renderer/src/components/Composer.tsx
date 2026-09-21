@@ -10,6 +10,8 @@ export function Composer(): React.JSX.Element | null {
   const cancel = useAppStore((state) => state.cancel)
   const running = useAppStore((state) => state.status.connection === 'running')
   const settings = useAppStore((state) => state.settings)
+  const models = useAppStore((state) => state.models)
+  const usage = useAppStore((state) => state.usage)
   const patchSettings = useAppStore((state) => state.patchSettings)
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -46,9 +48,11 @@ export function Composer(): React.JSX.Element | null {
               value={settings.model}
               onChange={(event) => void patchSettings({ model: event.target.value })}
             >
-              <option value="grok-4.6">grok-4.6</option>
-              <option value="grok-4.5">grok-4.5</option>
-              <option value="grok-4">grok-4</option>
+              {(models.length ? models.map((model) => model.id) : [settings.model]).map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
             </select>
             <select
               className="rounded-md bg-transparent px-1 py-1"
@@ -78,6 +82,11 @@ export function Composer(): React.JSX.Element | null {
               <option value="xhigh">xhigh</option>
             </select>
           </div>
+          {usage.contextWindowTokens > 0 ? (
+            <span className="text-[11px] text-[var(--text-muted)]">
+              {usage.contextPercent}% context
+            </span>
+          ) : null}
           {running ? (
             <button
               className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-1.5 text-[13px]"

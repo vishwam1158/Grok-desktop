@@ -30,7 +30,7 @@ function buildMenu(): void {
       label: 'File',
       submenu: [
         {
-          label: 'Open Project…',
+          label: 'Add Project…',
           accelerator: 'CmdOrCtrl+O',
           click: () => mainWindow?.webContents.send('menu:open-project')
         },

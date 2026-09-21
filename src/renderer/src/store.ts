@@ -1,16 +1,22 @@
 import { create } from 'zustand'
 import type {
+  AccountInfo,
   AppSettings,
   GrokRuntimeStatus,
+  ModelOption,
   PermissionRequest,
-  SessionSummary
+  SessionSummary,
+  UsageSnapshot
 } from '@shared/types'
-import { DEFAULT_SETTINGS } from '@shared/types'
+import { DEFAULT_SETTINGS, EMPTY_USAGE } from '@shared/types'
 import { addUserMessage, applySessionUpdate, type ChatMessage } from './lib/conversation'
 
 interface AppState {
   status: GrokRuntimeStatus
   settings: AppSettings
+  account: AccountInfo
+  models: ModelOption[]
+  usage: UsageSnapshot
   projectPath: string | null
   sessionId: string | null
   sessions: SessionSummary[]
@@ -23,12 +29,15 @@ interface AppState {
   setSettingsOpen: (open: boolean) => void
   hydrate: () => Promise<void>
   openProject: (cwd?: string) => Promise<void>
+  removeProject: (cwd: string) => Promise<void>
   newChat: () => Promise<void>
   loadSession: (id: string) => Promise<void>
+  deleteSession: (id: string) => Promise<void>
   send: () => Promise<void>
   cancel: () => Promise<void>
   respondPermission: (optionId: string | null) => Promise<void>
   login: () => Promise<void>
+  logout: () => Promise<void>
   patchSettings: (patch: Partial<AppSettings>) => Promise<void>
 }
 
@@ -41,9 +50,19 @@ const idleStatus: GrokRuntimeStatus = {
   error: null
 }
 
+const idleAccount: AccountInfo = {
+  email: null,
+  name: null,
+  subscriptionTier: null,
+  authMode: null
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   status: idleStatus,
   settings: DEFAULT_SETTINGS,
+  account: idleAccount,
+  models: [],
+  usage: EMPTY_USAGE,
   projectPath: null,
   sessionId: null,
   sessions: [],
@@ -56,11 +75,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
 
   hydrate: async () => {
-    const [status, settings] = await Promise.all([
+    const [status, settings, account, models] = await Promise.all([
       window.grok.getStatus(),
-      window.grok.getSettings()
+      window.grok.getSettings(),
+      window.grok.getAccount(),
+      window.grok.listModels()
     ])
-    set({ status, settings })
+    set({ status, settings, account, models })
+    if (settings.resumeLastProject && settings.lastProjectPath) {
+      await get().openProject(settings.lastProjectPath)
+    }
   },
 
   openProject: async (cwd) => {
@@ -68,7 +92,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!path) return
     set({
       error: null,
-      messages: [],
       permission: null,
       status: { ...get().status, connection: 'connecting' }
     })
@@ -78,24 +101,65 @@ export const useAppStore = create<AppState>((set, get) => ({
         projectPath: result.cwd,
         sessionId: result.sessionId,
         sessions: result.sessions,
+        messages: result.messages ?? [],
+        usage: result.usage ?? EMPTY_USAGE,
+        settings: result.settings ?? get().settings,
         status: result.status,
-        messages: []
+        draft: ''
       })
     } catch (error) {
       set({ error: error instanceof Error ? error.message : String(error) })
     }
   },
 
+  removeProject: async (cwd) => {
+    const settings = await window.grok.removeProject(cwd)
+    if (get().projectPath === cwd) {
+      set({
+        settings,
+        projectPath: null,
+        sessionId: null,
+        sessions: [],
+        messages: [],
+        usage: EMPTY_USAGE
+      })
+      return
+    }
+    set({ settings })
+  },
+
   newChat: async () => {
     if (!get().projectPath) return
     const result = await window.grok.newChat()
-    const sessions = await window.grok.listSessions(get().projectPath ?? undefined)
-    set({ sessionId: result.sessionId, messages: [], sessions, permission: null })
+    set({
+      sessionId: result.sessionId,
+      messages: [],
+      sessions: result.sessions,
+      usage: result.usage ?? EMPTY_USAGE,
+      permission: null,
+      draft: ''
+    })
   },
 
   loadSession: async (id) => {
-    await window.grok.loadSession(id)
-    set({ sessionId: id, messages: [], permission: null })
+    const result = await window.grok.loadSession(id)
+    set({
+      sessionId: result.sessionId,
+      messages: result.messages ?? [],
+      usage: result.usage ?? EMPTY_USAGE,
+      permission: null,
+      draft: ''
+    })
+  },
+
+  deleteSession: async (id) => {
+    const result = await window.grok.deleteSession(id)
+    set({
+      sessions: result.sessions,
+      sessionId: result.sessionId,
+      messages: result.messages ?? get().messages,
+      usage: result.usage ?? get().usage
+    })
   },
 
   send: async () => {
@@ -128,6 +192,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     await window.grok.login()
   },
 
+  logout: async () => {
+    const account = await window.grok.logout()
+    set({ account })
+  },
+
   patchSettings: async (patch) => {
     const settings = await window.grok.setSettings(patch)
     set({ settings })
@@ -148,14 +217,19 @@ export function bindGrokEvents(): () => void {
       useAppStore.setState({ permission })
     }),
     window.grok.onStop(() => {
-      void window.grok
-        .listSessions(useAppStore.getState().projectPath ?? undefined)
-        .then((sessions) => {
-          useAppStore.setState({ sessions })
-        })
+      const cwd = useAppStore.getState().projectPath
+      void window.grok.listSessions(cwd ?? undefined).then((sessions) => {
+        useAppStore.setState({ sessions })
+      })
     }),
     window.grok.onSession((payload) => {
       useAppStore.setState({ sessionId: payload.sessionId, projectPath: payload.cwd })
+    }),
+    window.grok.onAccount((account) => {
+      useAppStore.setState({ account: account as AccountInfo })
+    }),
+    window.grok.onUsage((usage) => {
+      useAppStore.setState({ usage: usage as UsageSnapshot })
     }),
     window.grok.onMenuOpenProject(() => {
       void useAppStore.getState().openProject()

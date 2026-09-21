@@ -7,6 +7,7 @@ import { isAbsolute, join, relative, resolve } from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import * as acp from '@agentclientprotocol/sdk'
 import type {
+  AccountInfo,
   AgentConnectionState,
   AppSettings,
   PermissionMode,
@@ -20,6 +21,7 @@ export interface GrokAgentEvents {
   onUpdate: (event: SessionUpdateEvent) => void
   onPermission: (request: PermissionRequest) => void
   onStop: (sessionId: string, stopReason: string) => void
+  onAccount: (account: AccountInfo) => void
   onLog: (line: string) => void
 }
 
@@ -165,8 +167,16 @@ export class GrokAgent {
       (initResult._meta as { defaultAuthMethodId?: string } | undefined)?.defaultAuthMethodId ||
       initResult.authMethods?.[0]?.id
     if (defaultAuth) {
-      await this.connection.agent.request(acp.methods.agent.authenticate, {
+      const auth = await this.connection.agent.request(acp.methods.agent.authenticate, {
         methodId: defaultAuth
+      })
+      const meta = (auth?._meta ?? {}) as Record<string, unknown>
+      this.events.onAccount({
+        email: typeof meta.email === 'string' ? meta.email : null,
+        name: typeof meta.first_name === 'string' ? meta.first_name : null,
+        subscriptionTier:
+          typeof meta.subscription_tier === 'string' ? meta.subscription_tier : null,
+        authMode: typeof meta.auth_mode === 'string' ? meta.auth_mode : null
       })
     }
 
