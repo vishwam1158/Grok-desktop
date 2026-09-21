@@ -1,0 +1,71 @@
+{
+  "name": "grok-desktop",
+  "version": "0.1.0",
+  "description": "Desktop app for Grok Build — a Claude Code-like GUI over the official grok CLI via ACP.",
+  "author": "vishwam1158",
+  "license": "Apache-2.0",
+  "homepage": "https://github.com/vishwam1158/Grok-desktop",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/vishwam1158/Grok-desktop.git"
+  },
+  "bugs": {
+    "url": "https://github.com/vishwam1158/Grok-desktop/issues"
+  },
+  "main": "./out/main/index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "electron-vite dev",
+    "start": "electron-vite preview",
+    "build": "electron-vite build",
+    "typecheck": "npm run typecheck:node && npm run typecheck:web",
+    "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
+    "typecheck:web": "tsc --noEmit -p tsconfig.web.json --composite false",
+    "lint": "eslint .",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "postinstall": "electron-builder install-app-deps",
+    "pack": "npm run typecheck && npm run build && electron-builder --dir",
+    "dist": "npm run typecheck && npm run build && electron-builder",
+    "dist:mac": "npm run typecheck && npm run build && electron-builder --mac",
+    "dist:win": "npm run typecheck && npm run build && electron-builder --win",
+    "dist:linux": "npm run typecheck && npm run build && electron-builder --linux"
+  },
+  "dependencies": {
+    "@agentclientprotocol/sdk": "^1.5.0",
+    "@electron-toolkit/preload": "^3.0.2",
+    "@electron-toolkit/utils": "^4.0.0",
+    "electron-updater": "^6.6.2",
+    "lucide-react": "^0.544.0",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1",
+    "zustand": "^5.0.8"
+  },
+  "devDependencies": {
+    "@electron-toolkit/eslint-config-ts": "^3.1.0",
+    "@electron-toolkit/tsconfig": "^2.0.0",
+    "@tailwindcss/vite": "^4.1.13",
+    "@types/node": "^22.18.6",
+    "@types/react": "^19.1.13",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^5.0.3",
+    "electron": "^37.4.0",
+    "electron-builder": "^26.0.12",
+    "electron-vite": "^4.0.0",
+    "eslint": "^9.35.0",
+    "eslint-plugin-react": "^7.37.5",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "prettier": "^3.6.2",
+    "tailwindcss": "^4.1.13",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.6",
+    "vitest": "^3.2.4"
+  }
+}

@@ -1,0 +1,50 @@
+appId: com.vishwam.grokdesktop
+productName: Grok Desktop
+copyright: Copyright © 2026 Grok Desktop contributors
+directories:
+  buildResources: resources
+  output: release
+files:
+  - out/**/*
+  - package.json
+  - resources/icon.png
+asar: true
+asarUnpack:
+  - '**/*.node'
+extraMetadata:
+  main: out/main/index.js
+mac:
+  category: public.app-category.developer-tools
+  icon: resources/icon.png
+  target:
+    - target: dmg
+      arch:
+        - arm64
+        - x64
+    - target: zip
+      arch:
+        - arm64
+        - x64
+  hardenedRuntime: true
+  gatekeeperAssess: false
+  entitlementsInherit: resources/entitlements.mac.plist
+dmg:
+  artifactName: ${productName}-${version}-${arch}.${ext}
+win:
+  icon: resources/icon.png
+  target:
+    - nsis
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  artifactName: ${productName}-Setup-${version}.${ext}
+linux:
+  icon: resources/icon.png
+  category: Development
+  target:
+    - AppImage
+    - deb
+  artifactName: ${name}-${version}-${arch}.${ext}
+publish: null
+npmRebuild: false
+electronVersion: 37.4.0

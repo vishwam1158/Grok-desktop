@@ -1,0 +1,24 @@
+name: Bug report
+description: Something in Grok Desktop is broken
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Grok Desktop version
+  - type: input
+    id: grok
+    attributes:
+      label: `grok --version` output
