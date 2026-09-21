@@ -27,6 +27,14 @@ interface PendingPermission {
   resolve: (optionId: string | null) => void
 }
 
+export function buildAgentArgs(settings: Pick<AppSettings, 'model' | 'reasoningEffort'>): string[] {
+  const args = ['agent']
+  if (settings.model) args.push('-m', settings.model)
+  if (settings.reasoningEffort) args.push('--reasoning-effort', settings.reasoningEffort)
+  args.push('--no-leader', 'stdio')
+  return args
+}
+
 function sessionMeta(mode: PermissionMode): Record<string, unknown> {
   if (mode === 'always-approve') return { yoloMode: true }
   if (mode === 'auto') return { autoMode: true }
@@ -69,35 +77,44 @@ export class GrokAgent {
     this.projectRoot = resolve(projectRoot)
     this.events.onStatus('connecting')
 
-    const args = ['agent', 'stdio', '--no-auto-update']
-    if (this.settings.model) {
-      args.push('-m', this.settings.model)
+    const args = buildAgentArgs(this.settings)
+
+    const env: NodeJS.ProcessEnv = {
+      ...process.env,
+      GROK_DISABLE_AUTOUPDATER: '1',
+      HOME: process.env.HOME ?? homedir()
     }
-    if (this.settings.reasoningEffort) {
-      args.push('--reasoning-effort', this.settings.reasoningEffort)
-    }
+    delete env.GROK_AGENT
 
     const proc = spawn(this.binary, args, {
       cwd: this.projectRoot,
-      env: {
-        ...process.env,
-        GROK_DISABLE_AUTOUPDATER: '1',
-        HOME: process.env.HOME ?? homedir()
-      },
+      env,
       stdio: ['pipe', 'pipe', 'pipe']
     })
     this.proc = proc
 
+    const stderrChunks: string[] = []
+    let ready = false
     proc.stderr?.on('data', (chunk: Buffer) => {
-      const text = chunk.toString('utf8').trim()
-      if (text) this.events.onLog(text)
+      const text = chunk.toString('utf8')
+      stderrChunks.push(text)
+      const trimmed = text.trim()
+      if (trimmed) this.events.onLog(trimmed)
+    })
+    const startupFailure = new Promise<never>((_, reject) => {
+      proc.once('exit', (code, signal) => {
+        if (ready) return
+        const detail = stderrChunks.join('').trim() || `exited (${signal ?? code ?? 'unknown'})`
+        reject(new Error(`Failed to start grok agent: ${detail}`))
+      })
     })
     proc.on('exit', (code, signal) => {
       if (this.proc === proc) {
         this.connection = null
         this.sessionId = null
         this.running = false
-        const message = `grok agent exited (${signal ?? code ?? 'unknown'})`
+        const detail = stderrChunks.join('').trim()
+        const message = detail || `grok agent exited (${signal ?? code ?? 'unknown'})`
         this.events.onStatus('disconnected', message)
       }
     })
@@ -129,18 +146,31 @@ export class GrokAgent {
       })
       .connect(stream)
 
-    await this.connection.agent.request(acp.methods.agent.initialize, {
-      protocolVersion: acp.PROTOCOL_VERSION,
-      clientInfo: {
-        name: 'grok-desktop',
-        title: 'Grok Desktop',
-        version: '0.1.0'
-      },
-      clientCapabilities: {
-        fs: { readTextFile: true, writeTextFile: true }
-      }
-    })
+    const initResult = await Promise.race([
+      this.connection.agent.request(acp.methods.agent.initialize, {
+        protocolVersion: acp.PROTOCOL_VERSION,
+        clientInfo: {
+          name: 'grok-desktop',
+          title: 'Grok Desktop',
+          version: '0.1.0'
+        },
+        clientCapabilities: {
+          fs: { readTextFile: true, writeTextFile: true }
+        }
+      }),
+      startupFailure
+    ])
 
+    const defaultAuth =
+      (initResult._meta as { defaultAuthMethodId?: string } | undefined)?.defaultAuthMethodId ||
+      initResult.authMethods?.[0]?.id
+    if (defaultAuth) {
+      await this.connection.agent.request(acp.methods.agent.authenticate, {
+        methodId: defaultAuth
+      })
+    }
+
+    ready = true
     this.events.onStatus('ready')
   }
 

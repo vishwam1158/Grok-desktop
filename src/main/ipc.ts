@@ -42,7 +42,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       onPermission: (request) => send(IPC.eventPermission, request),
       onStop: (sessionId, stopReason) => send(IPC.eventStop, { sessionId, stopReason }),
       onLog: (line) => {
-        if (process.env.NODE_ENV === 'development') console.error('[grok]', line)
+        console.error('[grok]', line)
       }
     })
     return agent
