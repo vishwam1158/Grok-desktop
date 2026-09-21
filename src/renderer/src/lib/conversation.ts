@@ -24,19 +24,9 @@ export type ChatMessage =
   | { id: string; role: 'user'; text: string }
   | { id: string; role: 'assistant'; parts: AssistantPart[] }
 
-function lastAssistant(
-  messages: ChatMessage[]
-): Extract<ChatMessage, { role: 'assistant' }> | null {
-  for (let i = messages.length - 1; i >= 0; i -= 1) {
-    const message = messages[i]
-    if (message?.role === 'assistant') return message
-  }
-  return null
-}
-
 function ensureAssistant(messages: ChatMessage[]): ChatMessage[] {
-  const current = lastAssistant(messages)
-  if (current) return messages
+  const last = messages[messages.length - 1]
+  if (last?.role === 'assistant') return messages
   return [...messages, { id: crypto.randomUUID(), role: 'assistant', parts: [] }]
 }
 
@@ -84,7 +74,10 @@ export function applySessionUpdate(messages: ChatMessage[], update: SessionUpdat
       const text = chunkText(update)
       if (!text) return messages
       const last = messages[messages.length - 1]
+      // ACP echoes the prompt. Never insert a user bubble under assistant output.
+      if (last?.role === 'assistant') return messages
       if (last?.role === 'user') {
+        if (last.text.includes(text) || text.includes(last.text)) return messages
         return [...messages.slice(0, -1), { ...last, text: last.text + text }]
       }
       return [...messages, { id: crypto.randomUUID(), role: 'user', text }]

@@ -29,6 +29,47 @@ describe('conversation reducer', () => {
     }
   })
 
+  it('keeps the user prompt above reasoning', () => {
+    let messages: ChatMessage[] = addUserMessage([], 'fix the bug')
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'agent_thought_chunk',
+      content: { type: 'text', text: 'Looking at the stack trace…' }
+    })
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'user_message_chunk',
+      content: { type: 'text', text: 'fix the bug' }
+    })
+    expect(messages.map((message) => message.role)).toEqual(['user', 'assistant'])
+    expect(messages[0]).toMatchObject({ role: 'user', text: 'fix the bug' })
+  })
+
+  it('starts a new assistant after a later user prompt', () => {
+    let messages: ChatMessage[] = addUserMessage([], 'first')
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'agent_message_chunk',
+      content: { type: 'text', text: 'done' }
+    })
+    messages = addUserMessage(messages, 'second')
+    messages = applySessionUpdate(messages, {
+      sessionUpdate: 'agent_thought_chunk',
+      content: { type: 'text', text: 'thinking about second' }
+    })
+    expect(messages.map((message) => message.role)).toEqual([
+      'user',
+      'assistant',
+      'user',
+      'assistant'
+    ])
+    const firstAssistant = messages[1]
+    const secondAssistant = messages[3]
+    expect(firstAssistant?.role === 'assistant' && firstAssistant.parts).toEqual([
+      { type: 'text', text: 'done' }
+    ])
+    expect(secondAssistant?.role === 'assistant' && secondAssistant.parts).toEqual([
+      { type: 'thought', text: 'thinking about second' }
+    ])
+  })
+
   it('updates matching tool calls', () => {
     let messages: ChatMessage[] = applySessionUpdate([], {
       sessionUpdate: 'tool_call',
