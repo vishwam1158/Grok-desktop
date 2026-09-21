@@ -13,7 +13,7 @@ export function PermissionModal(): React.JSX.Element | null {
         </div>
         <h2 className="mt-2 text-lg font-semibold">{permission.title}</h2>
         <p className="mt-2 text-[13px] leading-6 text-[var(--text-muted)]">
-          Grok wants to run a tool in this project. Choose how to continue.
+          Grok wants to run a tool in this project. Press 1–9 or click an option.
         </p>
         <div className="mt-4 flex flex-col gap-2">
           {permission.options.map((option, index) => (

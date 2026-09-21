@@ -39,8 +39,33 @@ function buildMenu(): void {
           accelerator: 'CmdOrCtrl+N',
           click: () => mainWindow?.webContents.send('menu:new-chat')
         },
+        {
+          label: 'Export Chat…',
+          accelerator: 'Shift+CmdOrCtrl+E',
+          click: () => mainWindow?.webContents.send('menu:export')
+        },
         { type: 'separator' },
         isMac ? { role: 'close' } : { role: 'quit' }
+      ]
+    },
+    {
+      label: 'Chat',
+      submenu: [
+        {
+          label: 'Command Palette',
+          accelerator: 'CmdOrCtrl+K',
+          click: () => mainWindow?.webContents.send('menu:command-palette')
+        },
+        {
+          label: 'Stop',
+          accelerator: 'CmdOrCtrl+.',
+          click: () => mainWindow?.webContents.send('menu:stop')
+        },
+        {
+          label: 'Copy Last Reply',
+          accelerator: 'Shift+CmdOrCtrl+C',
+          click: () => mainWindow?.webContents.send('menu:copy-last')
+        }
       ]
     },
     { role: 'editMenu' },
@@ -49,6 +74,11 @@ function buildMenu(): void {
     {
       role: 'help',
       submenu: [
+        {
+          label: 'Commands and Shortcuts',
+          accelerator: 'CmdOrCtrl+/',
+          click: () => mainWindow?.webContents.send('menu:shortcuts')
+        },
         {
           label: 'Grok Build docs',
           click: () => shell.openExternal('https://docs.x.ai/build/overview')

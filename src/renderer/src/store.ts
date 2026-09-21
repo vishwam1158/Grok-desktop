@@ -9,7 +9,15 @@ import type {
   UsageSnapshot
 } from '@shared/types'
 import { DEFAULT_SETTINGS, EMPTY_USAGE } from '@shared/types'
-import { addUserMessage, applySessionUpdate, type ChatMessage } from './lib/conversation'
+import { findCommand, parseSlash } from '@shared/commands'
+import type { PermissionMode, ReasoningEffort } from '@shared/types'
+import {
+  addUserMessage,
+  applySessionUpdate,
+  conversationMarkdown,
+  lastAssistantMarkdown,
+  type ChatMessage
+} from './lib/conversation'
 
 interface AppState {
   status: GrokRuntimeStatus
@@ -24,9 +32,21 @@ interface AppState {
   draft: string
   permission: PermissionRequest | null
   error: string | null
+  notice: string | null
   settingsOpen: boolean
+  shortcutsOpen: boolean
+  paletteOpen: boolean
+  promptHistory: string[]
   setDraft: (draft: string) => void
   setSettingsOpen: (open: boolean) => void
+  setShortcutsOpen: (open: boolean) => void
+  setPaletteOpen: (open: boolean) => void
+  setNotice: (notice: string | null) => void
+  copyLastReply: () => Promise<void>
+  exportChat: () => Promise<void>
+  cyclePermission: () => Promise<void>
+  recallPrompt: (direction: 1 | -1) => void
+  runSlash: (text: string) => Promise<'handled' | 'forward'>
   hydrate: () => Promise<void>
   openProject: (cwd?: string) => Promise<void>
   removeProject: (cwd: string) => Promise<void>
@@ -70,9 +90,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   draft: '',
   permission: null,
   error: null,
+  notice: null,
   settingsOpen: false,
+  shortcutsOpen: false,
+  paletteOpen: false,
+  promptHistory: [],
   setDraft: (draft) => set({ draft }),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
+  setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
+  setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
+  setNotice: (notice) => set({ notice }),
 
   hydrate: async () => {
     const [status, settings, account, models] = await Promise.all([
@@ -165,10 +192,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   send: async () => {
     const text = get().draft.trim()
     if (!text || get().status.connection === 'running') return
+    if (text.startsWith('/')) {
+      const result = await get().runSlash(text)
+      if (result === 'handled') {
+        set({ draft: '', paletteOpen: false })
+        return
+      }
+    }
+    const history = [text, ...get().promptHistory.filter((item) => item !== text)].slice(0, 50)
     set({
       draft: '',
       messages: addUserMessage(get().messages, text),
-      error: null
+      error: null,
+      promptHistory: history,
+      paletteOpen: false
     })
     try {
       await window.grok.sendPrompt(text)
@@ -200,6 +237,143 @@ export const useAppStore = create<AppState>((set, get) => ({
   patchSettings: async (patch) => {
     const settings = await window.grok.setSettings(patch)
     set({ settings })
+  },
+
+  copyLastReply: async () => {
+    const text = lastAssistantMarkdown(get().messages)
+    if (!text) {
+      set({ notice: 'No reply to copy yet' })
+      return
+    }
+    await navigator.clipboard.writeText(text)
+    set({ notice: 'Copied last reply' })
+  },
+
+  exportChat: async () => {
+    const markdown = conversationMarkdown(get().messages)
+    if (!markdown.trim()) {
+      set({ notice: 'Nothing to export' })
+      return
+    }
+    const saved = await window.grok.saveText(markdown, 'Export chat')
+    set({ notice: saved ? 'Chat exported' : 'Export cancelled' })
+  },
+
+  cyclePermission: async () => {
+    const order: PermissionMode[] = ['ask', 'auto', 'always-approve']
+    const current = get().settings.permissionMode
+    const next = order[(order.indexOf(current) + 1) % order.length] ?? 'ask'
+    const settings = await window.grok.setSettings({ permissionMode: next })
+    set({ settings, notice: `Permissions: ${next}` })
+  },
+
+  recallPrompt: (direction) => {
+    const history = get().promptHistory
+    if (history.length === 0) return
+    const current = get().draft
+    const index = history.indexOf(current)
+    const nextIndex =
+      direction < 0
+        ? Math.min(history.length - 1, index < 0 ? 0 : index + 1)
+        : Math.max(-1, index - 1)
+    set({ draft: nextIndex < 0 ? '' : (history[nextIndex] ?? '') })
+  },
+
+  runSlash: async (text) => {
+    const parsed = parseSlash(text)
+    if (!parsed?.name) return 'forward'
+    const command = findCommand(parsed.name)
+    if (!command) return 'forward'
+    if (command.kind === 'agent') return 'forward'
+
+    switch (command.name) {
+      case 'new':
+        await get().newChat()
+        set({ notice: 'New chat' })
+        return 'handled'
+      case 'resume':
+        set({ notice: 'Pick a chat in the sidebar', paletteOpen: false })
+        return 'handled'
+      case 'context': {
+        const usage = get().usage
+        set({
+          notice: usage.contextWindowTokens
+            ? `Context ${usage.contextPercent}% · ${usage.contextRemaining.toLocaleString()} left`
+            : 'No usage recorded for this chat yet'
+        })
+        return 'handled'
+      }
+      case 'copy':
+        await get().copyLastReply()
+        return 'handled'
+      case 'export':
+        await get().exportChat()
+        return 'handled'
+      case 'delete': {
+        const id = get().sessionId
+        if (id && confirm('Delete this chat from Grok history?')) await get().deleteSession(id)
+        return 'handled'
+      }
+      case 'model': {
+        const wanted = parsed.args.toLowerCase()
+        if (!wanted) {
+          set({ notice: `Model: ${get().settings.model}` })
+          return 'handled'
+        }
+        const match =
+          get().models.find((model) => model.id.toLowerCase() === wanted) ||
+          get().models.find((model) => model.id.toLowerCase().includes(wanted))
+        if (!match) {
+          set({ notice: `Unknown model: ${parsed.args}` })
+          return 'handled'
+        }
+        await get().patchSettings({ model: match.id })
+        set({ notice: `Model: ${match.id}` })
+        return 'handled'
+      }
+      case 'effort': {
+        const level = parsed.args.toLowerCase() as ReasoningEffort
+        if (!['low', 'medium', 'high', 'xhigh'].includes(level)) {
+          set({ notice: 'Usage: /effort low | medium | high | xhigh' })
+          return 'handled'
+        }
+        await get().patchSettings({ reasoningEffort: level })
+        set({ notice: `Effort: ${level}` })
+        return 'handled'
+      }
+      case 'always-approve': {
+        const next: PermissionMode =
+          get().settings.permissionMode === 'always-approve' ? 'ask' : 'always-approve'
+        await get().patchSettings({ permissionMode: next })
+        set({ notice: `Permissions: ${next}` })
+        return 'handled'
+      }
+      case 'auto': {
+        const next: PermissionMode = get().settings.permissionMode === 'auto' ? 'ask' : 'auto'
+        await get().patchSettings({ permissionMode: next })
+        set({ notice: `Permissions: ${next}` })
+        return 'handled'
+      }
+      case 'settings':
+        set({ settingsOpen: true, paletteOpen: false })
+        return 'handled'
+      case 'shortcuts':
+        set({ shortcutsOpen: true, paletteOpen: false })
+        return 'handled'
+      case 'login':
+        await get().login()
+        set({ notice: 'Opening grok login' })
+        return 'handled'
+      case 'logout':
+        await get().logout()
+        set({ notice: 'Signed out' })
+        return 'handled'
+      case 'quit':
+        await window.grok.windowClose()
+        return 'handled'
+      default:
+        return 'forward'
+    }
   }
 }))
 
@@ -236,6 +410,21 @@ export function bindGrokEvents(): () => void {
     }),
     window.grok.onMenuNewChat(() => {
       void useAppStore.getState().newChat()
+    }),
+    window.grok.onMenuCommandPalette(() => {
+      useAppStore.setState((state) => ({ paletteOpen: !state.paletteOpen, shortcutsOpen: false }))
+    }),
+    window.grok.onMenuShortcuts(() => {
+      useAppStore.setState({ shortcutsOpen: true, paletteOpen: false })
+    }),
+    window.grok.onMenuCopyLast(() => {
+      void useAppStore.getState().copyLastReply()
+    }),
+    window.grok.onMenuExport(() => {
+      void useAppStore.getState().exportChat()
+    }),
+    window.grok.onMenuStop(() => {
+      void useAppStore.getState().cancel()
     })
   ]
   return () => unsubscribers.forEach((unsubscribe) => unsubscribe())

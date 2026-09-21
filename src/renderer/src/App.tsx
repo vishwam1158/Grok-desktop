@@ -3,13 +3,17 @@ import { Composer } from './components/Composer'
 import { Conversation } from './components/Conversation'
 import { PermissionModal } from './components/PermissionModal'
 import { SettingsModal } from './components/SettingsModal'
+import { ShortcutsModal } from './components/ShortcutsModal'
 import { Sidebar } from './components/Sidebar'
 import { StatusBar } from './components/StatusBar'
 import { Titlebar } from './components/Titlebar'
+import { Toast } from './components/Toast'
+import { useAppHotkeys } from './hooks/useAppHotkeys'
 import { bindGrokEvents, useAppStore } from './store'
 
 export default function App(): React.JSX.Element {
   const hydrate = useAppStore((state) => state.hydrate)
+  useAppHotkeys()
 
   useEffect(() => {
     void hydrate()
@@ -31,6 +35,8 @@ export default function App(): React.JSX.Element {
       <StatusBar />
       <PermissionModal />
       <SettingsModal />
+      <ShortcutsModal />
+      <Toast />
     </div>
   )
 }

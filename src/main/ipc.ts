@@ -248,4 +248,23 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     else window.maximize()
   })
   ipcMain.handle(IPC.windowClose, () => getWindow()?.close())
+
+  ipcMain.handle(IPC.saveText, async (_event, payload: { title?: string; content: string }) => {
+    const window = getWindow()
+    const result = window
+      ? await dialog.showSaveDialog(window, {
+          title: payload.title ?? 'Export chat',
+          defaultPath: 'grok-chat.md',
+          filters: [{ name: 'Markdown', extensions: ['md'] }]
+        })
+      : await dialog.showSaveDialog({
+          title: payload.title ?? 'Export chat',
+          defaultPath: 'grok-chat.md',
+          filters: [{ name: 'Markdown', extensions: ['md'] }]
+        })
+    if (result.canceled || !result.filePath) return false
+    const { writeFile } = await import('node:fs/promises')
+    await writeFile(result.filePath, payload.content, 'utf8')
+    return true
+  })
 }

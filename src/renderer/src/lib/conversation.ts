@@ -6,4 +6,9 @@ export type {
   ThoughtPart,
   ToolCallPart
 } from '@shared/conversation'
-export { addUserMessage, applySessionUpdate } from '@shared/conversation'
+export {
+  addUserMessage,
+  applySessionUpdate,
+  conversationMarkdown,
+  lastAssistantMarkdown
+} from '@shared/conversation'

@@ -154,3 +154,34 @@ export function applySessionUpdate(messages: ChatMessage[], update: SessionUpdat
 export function addUserMessage(messages: ChatMessage[], text: string): ChatMessage[] {
   return [...messages, { id: newId(), role: 'user', text }]
 }
+
+export function lastAssistantMarkdown(messages: ChatMessage[]): string {
+  for (let i = messages.length - 1; i >= 0; i -= 1) {
+    const message = messages[i]
+    if (message?.role !== 'assistant') continue
+    return message.parts
+      .filter((part): part is TextPart => part.type === 'text')
+      .map((part) => part.text)
+      .join('\n\n')
+      .trim()
+  }
+  return ''
+}
+
+export function conversationMarkdown(messages: ChatMessage[]): string {
+  return messages
+    .map((message) => {
+      if (message.role === 'user') return `## User\n\n${message.text}`
+      const body = message.parts
+        .map((part) => {
+          if (part.type === 'text') return part.text
+          if (part.type === 'thought') return `_${part.text}_`
+          if (part.type === 'tool') return `**${part.title}** (${part.status})`
+          return part.entries.map((entry) => `- ${entry.content}`).join('\n')
+        })
+        .filter(Boolean)
+        .join('\n\n')
+      return `## Grok\n\n${body}`
+    })
+    .join('\n\n')
+}

@@ -30,6 +30,8 @@ const grok = {
   windowMinimize: () => ipcRenderer.invoke(IPC.windowMinimize),
   windowMaximize: () => ipcRenderer.invoke(IPC.windowMaximize),
   windowClose: () => ipcRenderer.invoke(IPC.windowClose),
+  saveText: (content: string, title?: string) =>
+    ipcRenderer.invoke(IPC.saveText, { content, title }),
   onStatus: (listener: (payload: unknown) => void) => subscribe(IPC.eventStatus, listener),
   onUpdate: (listener: (payload: SessionUpdateEvent) => void) =>
     subscribe(IPC.eventUpdate, listener),
@@ -42,7 +44,12 @@ const grok = {
   onAccount: (listener: (payload: unknown) => void) => subscribe(IPC.eventAccount, listener),
   onUsage: (listener: (payload: unknown) => void) => subscribe(IPC.eventUsage, listener),
   onMenuOpenProject: (listener: () => void) => subscribe('menu:open-project', listener),
-  onMenuNewChat: (listener: () => void) => subscribe('menu:new-chat', listener)
+  onMenuNewChat: (listener: () => void) => subscribe('menu:new-chat', listener),
+  onMenuCommandPalette: (listener: () => void) => subscribe('menu:command-palette', listener),
+  onMenuShortcuts: (listener: () => void) => subscribe('menu:shortcuts', listener),
+  onMenuCopyLast: (listener: () => void) => subscribe('menu:copy-last', listener),
+  onMenuExport: (listener: () => void) => subscribe('menu:export', listener),
+  onMenuStop: (listener: () => void) => subscribe('menu:stop', listener)
 }
 
 function subscribe(channel: string, listener: (...args: any[]) => void): () => void {

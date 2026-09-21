@@ -182,6 +182,7 @@ export const IPC = {
   windowMinimize: 'window:minimize',
   windowMaximize: 'window:maximize',
   windowClose: 'window:close',
+  saveText: 'grok:save-text',
   eventStatus: 'event:status',
   eventUpdate: 'event:session-update',
   eventPermission: 'event:permission',
