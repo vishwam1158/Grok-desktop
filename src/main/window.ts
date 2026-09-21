@@ -13,7 +13,7 @@ export function createMainWindow(): BrowserWindow {
     titleBarStyle: 'hiddenInset',
     icon: join(__dirname, '../../resources/icon.png'),
     trafficLightPosition: { x: 16, y: 16 },
-    backgroundColor: '#0c0c0d',
+    backgroundColor: '#09090b',
     autoHideMenuBar: true,
     webPreferences: {
       preload: join(__dirname, '../preload/index.mjs'),

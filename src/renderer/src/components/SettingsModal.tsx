@@ -1,3 +1,5 @@
+import { X } from 'lucide-react'
+import { formatTokens } from '@shared/format'
 import { useAppStore } from '../store'
 
 export function SettingsModal(): React.JSX.Element | null {
@@ -14,95 +16,88 @@ export function SettingsModal(): React.JSX.Element | null {
   if (!open) return null
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/55 p-6">
-      <div className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-5">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+      <div className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Settings</h2>
-          <button onClick={() => setSettingsOpen(false)} className="text-[var(--text-muted)]">
-            Close
+          <button className="icon-btn" onClick={() => setSettingsOpen(false)}>
+            <X size={16} />
           </button>
         </div>
 
-        <section className="mt-5">
+        <section className="mt-5 rounded-2xl border border-[var(--border)] p-4">
           <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             Account
           </h3>
-          <div className="mt-2 text-[13px]">
-            <div>{account.name || 'Grok user'}</div>
-            <div className="text-[var(--text-muted)]">{account.email || 'Not signed in'}</div>
-            <div className="mt-1 text-[var(--text-muted)]">
-              Plan:{' '}
-              {account.subscriptionTier || (status.authenticated ? status.authSource : 'none')}
-            </div>
+          <div className="mt-2 text-[14px]">{account.name || 'Grok user'}</div>
+          <div className="text-[13px] text-[var(--text-muted)]">
+            {account.email || 'Not signed in'}
+          </div>
+          <div className="mt-1 text-[13px] text-[var(--accent)]">
+            {account.subscriptionTier || (status.authenticated ? status.authSource : 'none')}
           </div>
           <div className="mt-3 flex gap-2">
-            <button
-              className="rounded-lg border border-[var(--border)] px-3 py-2 text-[13px]"
-              onClick={() => void login()}
-            >
+            <button className="ghost-btn" onClick={() => void login()}>
               Sign in
             </button>
-            <button
-              className="rounded-lg border border-[var(--border)] px-3 py-2 text-[13px]"
-              onClick={() => void logout()}
-            >
+            <button className="ghost-btn" onClick={() => void logout()}>
               Sign out
             </button>
           </div>
         </section>
 
-        <section className="mt-6">
-          <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Agent
-          </h3>
-          <label className="mt-2 block text-[13px] text-[var(--text-muted)]">Model</label>
-          <select
-            className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2"
-            value={settings.model}
-            onChange={(event) => void patchSettings({ model: event.target.value })}
-          >
-            {(models.length ? models.map((model) => model.id) : [settings.model]).map((id) => (
-              <option key={id} value={id}>
-                {id}
-              </option>
-            ))}
-          </select>
-          <label className="mt-3 block text-[13px] text-[var(--text-muted)]">Reasoning</label>
-          <select
-            className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2"
-            value={settings.reasoningEffort}
-            onChange={(event) =>
-              void patchSettings({
-                reasoningEffort: event.target.value as typeof settings.reasoningEffort
-              })
-            }
-          >
-            <option value="low">low</option>
-            <option value="medium">medium</option>
-            <option value="high">high</option>
-            <option value="xhigh">xhigh</option>
-          </select>
-          <label className="mt-3 block text-[13px] text-[var(--text-muted)]">Permissions</label>
-          <select
-            className="mt-1 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2"
-            value={settings.permissionMode}
-            onChange={(event) =>
-              void patchSettings({
-                permissionMode: event.target.value as typeof settings.permissionMode
-              })
-            }
-          >
-            <option value="ask">ask</option>
-            <option value="auto">auto</option>
-            <option value="always-approve">always-approve</option>
-          </select>
+        <section className="mt-4 grid gap-3">
+          <label className="text-[13px] text-[var(--text-muted)]">
+            Model
+            <select
+              className="field mt-1"
+              value={settings.model}
+              onChange={(event) => void patchSettings({ model: event.target.value })}
+            >
+              {(models.length ? models.map((model) => model.id) : [settings.model]).map((id) => (
+                <option key={id} value={id}>
+                  {id}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-[13px] text-[var(--text-muted)]">
+            Reasoning
+            <select
+              className="field mt-1"
+              value={settings.reasoningEffort}
+              onChange={(event) =>
+                void patchSettings({
+                  reasoningEffort: event.target.value as typeof settings.reasoningEffort
+                })
+              }
+            >
+              <option value="low">low</option>
+              <option value="medium">medium</option>
+              <option value="high">high</option>
+              <option value="xhigh">xhigh</option>
+            </select>
+          </label>
+          <label className="text-[13px] text-[var(--text-muted)]">
+            Permissions
+            <select
+              className="field mt-1"
+              value={settings.permissionMode}
+              onChange={(event) =>
+                void patchSettings({
+                  permissionMode: event.target.value as typeof settings.permissionMode
+                })
+              }
+            >
+              <option value="ask">ask</option>
+              <option value="auto">auto</option>
+              <option value="always-approve">always-approve</option>
+            </select>
+          </label>
         </section>
 
-        <section className="mt-6">
-          <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Workspace
-          </h3>
-          <label className="mt-3 flex items-center gap-2 text-[13px]">
+        <section className="mt-4 rounded-2xl border border-[var(--border)] p-4">
+          <label className="flex items-center gap-2 text-[13px]">
             <input
               type="checkbox"
               checked={settings.showThinking}
@@ -120,33 +115,27 @@ export function SettingsModal(): React.JSX.Element | null {
           </label>
         </section>
 
-        <section className="mt-6">
-          <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-            Usage this chat
-          </h3>
-          <div className="mt-2 grid grid-cols-2 gap-2 text-[13px] text-[var(--text-muted)]">
+        <section className="mt-4 rounded-2xl border border-[var(--border)] p-4 text-[13px] text-[var(--text-muted)]">
+          <h3 className="text-[11px] uppercase tracking-[0.16em]">Usage this chat</h3>
+          <div className="mt-2 grid grid-cols-2 gap-2">
             <div>Context {usage.contextPercent}%</div>
-            <div>
-              Remaining {usage.contextWindowTokens ? usage.contextRemaining.toLocaleString() : '—'}
-            </div>
-            <div>Input {usage.inputTokens.toLocaleString()}</div>
-            <div>Output {usage.outputTokens.toLocaleString()}</div>
-            <div>Turns {usage.turnCount}</div>
-            <div>Calls {usage.modelCalls}</div>
+            <div>Left {usage.contextWindowTokens ? formatTokens(usage.contextRemaining) : '—'}</div>
+            <div>Input {formatTokens(usage.inputTokens)}</div>
+            <div>Output {formatTokens(usage.outputTokens)}</div>
           </div>
         </section>
 
-        <section className="mt-6">
-          <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+        <section className="mt-4">
+          <label className="text-[13px] text-[var(--text-muted)]">
             Grok CLI
-          </h3>
-          <input
-            className="mt-2 w-full rounded-lg border border-[var(--border)] bg-[var(--bg)] px-3 py-2 text-[13px]"
-            value={settings.grokBinary}
-            placeholder={status.binaryPath ?? '~/.grok/bin/grok'}
-            onChange={(event) => void patchSettings({ grokBinary: event.target.value })}
-          />
-          <div className="mt-2 text-[13px] text-[var(--text-muted)]">
+            <input
+              className="field mt-1"
+              value={settings.grokBinary}
+              placeholder={status.binaryPath ?? '~/.grok/bin/grok'}
+              onChange={(event) => void patchSettings({ grokBinary: event.target.value })}
+            />
+          </label>
+          <div className="mt-2 text-[12px] text-[var(--text-muted)]">
             {status.version ?? 'not found'}
           </div>
         </section>

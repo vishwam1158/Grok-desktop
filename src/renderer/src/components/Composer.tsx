@@ -1,5 +1,5 @@
 import { useEffect, useRef } from 'react'
-import { Square } from 'lucide-react'
+import { ArrowUp, Square } from 'lucide-react'
 import { useAppStore } from '../store'
 
 export function Composer(): React.JSX.Element | null {
@@ -14,37 +14,54 @@ export function Composer(): React.JSX.Element | null {
   const usage = useAppStore((state) => state.usage)
   const patchSettings = useAppStore((state) => state.patchSettings)
   const ref = useRef<HTMLTextAreaElement>(null)
+  const canSend = Boolean(draft.trim()) && !running
 
   useEffect(() => {
     const node = ref.current
     if (!node) return
     node.style.height = 'auto'
-    node.style.height = `${Math.min(node.scrollHeight, 200)}px`
+    node.style.height = `${Math.min(node.scrollHeight, 180)}px`
   }, [draft])
 
   if (!projectPath) return null
 
   return (
-    <div className="border-t border-[var(--border)] px-6 py-4">
-      <div className="mx-auto max-w-3xl rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] p-3">
-        <textarea
-          ref={ref}
-          value={draft}
-          rows={1}
-          placeholder="Ask Grok to inspect, edit, or run something…"
-          className="w-full resize-none bg-transparent outline-none"
-          onChange={(event) => setDraft(event.target.value)}
-          onKeyDown={(event) => {
-            if (event.key === 'Enter' && !event.shiftKey) {
-              event.preventDefault()
-              void send()
-            }
-          }}
-        />
-        <div className="mt-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 text-[12px] text-[var(--text-muted)]">
+    <div className="px-6 pb-5 pt-2">
+      <div className="mx-auto max-w-3xl rounded-[22px] border border-[var(--border)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow)]">
+        <div className="flex items-end gap-2">
+          <textarea
+            ref={ref}
+            value={draft}
+            rows={1}
+            placeholder="Message Grok…"
+            className="max-h-[180px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-[var(--text-muted)]"
+            onChange={(event) => setDraft(event.target.value)}
+            onKeyDown={(event) => {
+              if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault()
+                void send()
+              }
+            }}
+          />
+          {running ? (
+            <button className="stop-btn" title="Stop" onClick={() => void cancel()}>
+              <Square size={12} fill="currentColor" />
+            </button>
+          ) : (
+            <button
+              className="send-btn"
+              title="Send"
+              disabled={!canSend}
+              onClick={() => void send()}
+            >
+              <ArrowUp size={18} strokeWidth={2.6} />
+            </button>
+          )}
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-3 px-1">
+          <div className="flex min-w-0 flex-wrap items-center gap-1.5">
             <select
-              className="rounded-md bg-transparent px-1 py-1"
+              className="pill-select"
               value={settings.model}
               onChange={(event) => void patchSettings({ model: event.target.value })}
             >
@@ -55,7 +72,7 @@ export function Composer(): React.JSX.Element | null {
               ))}
             </select>
             <select
-              className="rounded-md bg-transparent px-1 py-1"
+              className="pill-select"
               value={settings.permissionMode}
               onChange={(event) =>
                 void patchSettings({
@@ -68,7 +85,7 @@ export function Composer(): React.JSX.Element | null {
               <option value="always-approve">always-approve</option>
             </select>
             <select
-              className="rounded-md bg-transparent px-1 py-1"
+              className="pill-select"
               value={settings.reasoningEffort}
               onChange={(event) =>
                 void patchSettings({
@@ -83,26 +100,11 @@ export function Composer(): React.JSX.Element | null {
             </select>
           </div>
           {usage.contextWindowTokens > 0 ? (
-            <span className="text-[11px] text-[var(--text-muted)]">
+            <span className="shrink-0 text-[11px] text-[var(--text-muted)]">
               {usage.contextPercent}% context
             </span>
-          ) : null}
-          {running ? (
-            <button
-              className="flex items-center gap-2 rounded-lg border border-[var(--border)] px-3 py-1.5 text-[13px]"
-              onClick={() => void cancel()}
-            >
-              <Square size={11} fill="currentColor" />
-              Stop
-            </button>
           ) : (
-            <button
-              className="rounded-lg bg-[var(--accent)] px-3 py-1.5 text-[13px] font-medium text-black disabled:opacity-40"
-              disabled={!draft.trim()}
-              onClick={() => void send()}
-            >
-              Send
-            </button>
+            <span className="shrink-0 text-[11px] text-[var(--text-muted)]">Enter to send</span>
           )}
         </div>
       </div>
