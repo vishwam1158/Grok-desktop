@@ -48,6 +48,13 @@ Useful scripts:
 | `npm run lint`      | ESLint                          |
 | `npm run dist:mac`  | Packaged `.dmg` / `.zip`        |
 
+If `npm run dev` fails with `Error: Electron uninstall`, the Chromium binary did not finish downloading. Restore it and retry:
+
+```bash
+npm run electron:install
+npm run dev
+```
+
 ## Architecture
 
 ```
