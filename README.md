@@ -15,6 +15,20 @@ This repository is **not** a fork of `xai-org/grok-build`. It is a native shell 
 - Model and reasoning-effort controls
 - `grok login` from the app when you are not authenticated
 
+## Screenshots
+
+Dummy project `acme-web`. No real sessions or account data.
+
+| Chat | Commands |
+| --- | --- |
+| ![Chat](docs/screenshots/chat.png) | ![Commands](docs/screenshots/commands.png) |
+
+| Settings | Shortcuts |
+| --- | --- |
+| ![Settings](docs/screenshots/settings.png) | ![Shortcuts](docs/screenshots/shortcuts.png) |
+
+![Permission](docs/screenshots/permission.png)
+
 ## Requirements
 
 - macOS, Linux, or Windows
