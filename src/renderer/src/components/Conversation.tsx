@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import logo from '../assets/logo.png'
 import { Markdown } from './Markdown'
 import { useAppStore } from '../store'
 import type { AssistantPart } from '../lib/conversation'
@@ -43,9 +44,7 @@ export function Conversation(): React.JSX.Element {
   if (messages.length === 0) {
     return (
       <div className="flex h-full flex-col items-center justify-center px-8 text-center">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl border border-[var(--border)] bg-[var(--bg-elevated)] text-lg">
-          ✦
-        </div>
+        <img src={logo} alt="" className="mb-4 h-12 w-12 rounded-2xl object-cover" />
         <div className="text-[28px] font-semibold tracking-tight">What should Grok build?</div>
         <p className="mt-2 max-w-md text-[15px] leading-6 text-[var(--text-muted)]">
           Review a diff, run tests, or start a feature. Your prompt stays above the reply.
@@ -128,6 +127,7 @@ function Welcome(): React.JSX.Element {
   return (
     <div className="flex h-full items-center justify-center">
       <div className="w-full max-w-xl px-8">
+        <img src={logo} alt="" className="mb-5 h-14 w-14 rounded-2xl object-cover" />
         <div className="text-[11px] uppercase tracking-[0.22em] text-[var(--text-muted)]">
           SpaceXAI · Grok Build
         </div>
