@@ -7,6 +7,11 @@ import { createMainWindow } from './window'
 let mainWindow: BrowserWindow | null = null
 
 app.setName('Grok Desktop')
+app.commandLine.appendSwitch('in-process-gpu')
+app.commandLine.appendSwitch(
+  'disable-features',
+  'SpareRendererForSitePerProcess,CalculateNativeWinOcclusion,BackForwardCache'
+)
 
 function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -106,9 +111,12 @@ app.whenReady().then(() => {
     if (!image.isEmpty()) app.dock?.setIcon(image)
   }
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
-  registerIpc(() => mainWindow)
+  const runtime = registerIpc(() => mainWindow)
   buildMenu()
   mainWindow = createMainWindow()
+  const parkAgent = (): void => runtime.releaseIfIdle()
+  mainWindow.on('minimize', parkAgent)
+  mainWindow.on('hide', parkAgent)
   mainWindow.on('closed', () => {
     mainWindow = null
   })

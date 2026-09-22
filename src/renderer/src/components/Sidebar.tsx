@@ -1,8 +1,8 @@
 import { FolderPlus, MessageSquare, Plus, Trash2 } from 'lucide-react'
 import { projectName } from '@shared/format'
-import logo from '../assets/logo.png'
 import { relativeTime } from '../lib/time'
 import { useAppStore } from '../store'
+import { Mark } from './Mark'
 
 export function Sidebar(): React.JSX.Element {
   const settings = useAppStore((state) => state.settings)
@@ -20,11 +20,7 @@ export function Sidebar(): React.JSX.Element {
     <aside className="flex w-[292px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <div className="flex items-center gap-2.5">
-          <img
-            src={logo}
-            alt=""
-            className="h-8 w-8 rounded-[9px] object-cover shadow-[inset_0_0_0_1px_var(--border)]"
-          />
+          <Mark className="h-8 w-8" />
           <div>
             <div className="text-[14px] font-semibold tracking-tight">Grok Desktop</div>
             <div className="text-[11px] text-[var(--text-muted)]">Build</div>

@@ -2,7 +2,13 @@ export type PermissionMode = 'ask' | 'auto' | 'always-approve'
 
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
 
-export type AgentConnectionState = 'disconnected' | 'connecting' | 'ready' | 'running' | 'error'
+export type AgentConnectionState =
+  | 'disconnected'
+  | 'idle'
+  | 'connecting'
+  | 'ready'
+  | 'running'
+  | 'error'
 
 export interface ProjectRecord {
   path: string

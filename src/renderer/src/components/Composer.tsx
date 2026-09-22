@@ -83,7 +83,7 @@ export function Composer(): React.JSX.Element | null {
               ref={ref}
               value={draft}
               rows={1}
-              placeholder="Message Grok…  / for commands"
+              placeholder="Message Grok…   / commands"
               className="max-h-[180px] min-h-[40px] flex-1 resize-none bg-transparent px-2 py-2 text-[15px] leading-6 outline-none placeholder:text-[var(--text-muted)]"
               onChange={(event) => {
                 setDraft(event.target.value)

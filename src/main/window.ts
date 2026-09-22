@@ -19,7 +19,10 @@ export function createMainWindow(): BrowserWindow {
       preload: join(__dirname, '../preload/index.mjs'),
       sandbox: false,
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      spellcheck: false,
+      backgroundThrottling: true,
+      v8CacheOptions: 'bypassHeatCheck'
     }
   })
 

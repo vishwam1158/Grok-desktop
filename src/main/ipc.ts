@@ -8,11 +8,18 @@ import { forgetProject, loadSettings, rememberProject, saveSettings } from './se
 import { deleteSessionOnDisk, listDiskSessions, loadTranscript } from './sessions'
 import { readUsage } from './usage'
 
-export function registerIpc(getWindow: () => BrowserWindow | null): void {
+export function registerIpc(getWindow: () => BrowserWindow | null): {
+  releaseIfIdle: () => void
+} {
   let settings = loadSettings()
   let agent: GrokAgent | null = null
+  let starting: Promise<GrokAgent> | null = null
   let projectPath: string | null = null
+  let activeSessionId: string | null = null
+  let releaseTimer: ReturnType<typeof setTimeout> | null = null
+  let cachedVersion: string | null | undefined
   let account = readAccount()
+  const IDLE_RELEASE_MS = 30_000
 
   const send = (channel: string, payload: unknown): void => {
     getWindow()?.webContents.send(channel, payload)
@@ -26,15 +33,47 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   const statusPayload = async () => {
     const binary = resolveGrokBinary(settings.grokBinary)
     const auth = detectAuth()
-    const version = binary ? await readGrokVersion(binary) : null
+    if (cachedVersion === undefined) {
+      cachedVersion = binary ? await readGrokVersion(binary) : null
+    }
+    const connection = !binary
+      ? 'disconnected'
+      : !projectPath
+        ? 'disconnected'
+        : !agent
+          ? 'idle'
+          : agent.isRunning
+            ? 'running'
+            : 'ready'
     return {
       binaryPath: binary,
-      version,
+      version: cachedVersion,
       authenticated: auth.authenticated,
       authSource: auth.authSource,
-      connection: agent ? (agent.isRunning ? 'running' : 'ready') : 'disconnected',
+      connection,
       error: binary ? null : 'Grok CLI not found. Install from https://x.ai/cli'
     }
+  }
+
+  const cancelRelease = (): void => {
+    if (releaseTimer) clearTimeout(releaseTimer)
+    releaseTimer = null
+  }
+
+  const releaseAgent = async (): Promise<void> => {
+    cancelRelease()
+    starting = null
+    const current = agent
+    agent = null
+    if (current) await current.stop()
+    send(IPC.eventStatus, await statusPayload())
+  }
+
+  const scheduleRelease = (): void => {
+    cancelRelease()
+    releaseTimer = setTimeout(() => {
+      if (!agent?.isRunning) void releaseAgent()
+    }, IDLE_RELEASE_MS)
   }
 
   const bindAgent = (binary: string, cwd: string): GrokAgent => {
@@ -45,6 +84,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
         })
       },
       onSession: (sessionId) => {
+        activeSessionId = sessionId
         settings = rememberProject(settings, cwd, sessionId)
         send(IPC.eventSession, { sessionId, cwd })
         send(IPC.eventUsage, usageFor(sessionId))
@@ -54,6 +94,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
       onStop: (sessionId, stopReason) => {
         send(IPC.eventStop, { sessionId, stopReason })
         send(IPC.eventUsage, usageFor(sessionId))
+        scheduleRelease()
       },
       onAccount: (next) => {
         account = {
@@ -71,36 +112,53 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     return agent
   }
 
+  const ensureAgent = async (): Promise<GrokAgent> => {
+    cancelRelease()
+    if (agent) return agent
+    if (starting) return starting
+    const binary = resolveGrokBinary(settings.grokBinary)
+    const cwd = projectPath
+    if (!binary) throw new Error('Grok CLI was not found on this machine')
+    if (!cwd) throw new Error('Open a project first')
+    const sessionToLoad = activeSessionId
+    starting = (async () => {
+      const next = bindAgent(binary, cwd)
+      await next.start(cwd)
+      if (sessionToLoad) {
+        try {
+          await next.loadSession(sessionToLoad)
+        } catch {
+          activeSessionId = await next.newSession()
+        }
+      }
+      return next
+    })()
+    try {
+      return await starting
+    } finally {
+      starting = null
+    }
+  }
+
   const openAt = async (cwd: string, resumeSessionId?: string | null) => {
     const binary = resolveGrokBinary(settings.grokBinary)
     if (!binary) throw new Error('Grok CLI was not found on this machine')
+    await releaseAgent()
     settings = rememberProject(settings, cwd)
     projectPath = cwd
-    const next = bindAgent(binary, cwd)
-    await next.start(cwd)
     const sessions = listDiskSessions(cwd)
-    const preferred =
+    activeSessionId =
       resumeSessionId ||
       settings.projects.find((project) => project.path === cwd)?.lastSessionId ||
       sessions[0]?.id ||
       null
-    let sessionId: string
-    if (preferred) {
-      try {
-        sessionId = await next.loadSession(preferred)
-      } catch {
-        sessionId = await next.newSession()
-      }
-    } else {
-      sessionId = await next.newSession()
-    }
-    settings = rememberProject(settings, cwd, sessionId)
+    if (activeSessionId) settings = rememberProject(settings, cwd, activeSessionId)
     return {
       cwd,
-      sessionId,
-      sessions: listDiskSessions(cwd),
-      messages: loadTranscript(cwd, sessionId),
-      usage: usageFor(sessionId),
+      sessionId: activeSessionId,
+      sessions,
+      messages: activeSessionId ? loadTranscript(cwd, activeSessionId) : [],
+      usage: usageFor(activeSessionId),
       settings,
       status: await statusPayload()
     }
@@ -158,21 +216,23 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
   })
 
   ipcMain.handle(IPC.newChat, async () => {
-    if (!agent || !projectPath) throw new Error('Open a project first')
-    const sessionId = await agent.newSession()
-    settings = rememberProject(settings, projectPath, sessionId)
+    if (!projectPath) throw new Error('Open a project first')
+    await releaseAgent()
+    activeSessionId = null
+    settings = rememberProject(settings, projectPath, null)
     return {
-      sessionId,
+      sessionId: null,
       cwd: projectPath,
       sessions: listDiskSessions(projectPath),
       messages: [],
-      usage: usageFor(sessionId)
+      usage: usageFor(null)
     }
   })
 
   ipcMain.handle(IPC.loadSession, async (_event, sessionId: string) => {
-    if (!agent || !projectPath) throw new Error('Open a project first')
-    await agent.loadSession(sessionId)
+    if (!projectPath) throw new Error('Open a project first')
+    await releaseAgent()
+    activeSessionId = sessionId
     settings = rememberProject(settings, projectPath, sessionId)
     return {
       sessionId,
@@ -187,31 +247,26 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     if (!binary) throw new Error('Grok CLI was not found on this machine')
     await deleteSessionOnDisk(binary, sessionId)
     const sessions = listDiskSessions(projectPath || undefined)
-    if (agent?.currentSessionId === sessionId) {
-      if (sessions[0]) {
-        await agent.loadSession(sessions[0].id)
-        if (projectPath) settings = rememberProject(settings, projectPath, sessions[0].id)
-        return {
-          sessionId: sessions[0].id,
-          sessions,
-          messages: projectPath ? loadTranscript(projectPath, sessions[0].id) : [],
-          usage: usageFor(sessions[0].id)
-        }
-      }
-      const created = await agent.newSession()
+    if (activeSessionId === sessionId) {
+      await releaseAgent()
+      activeSessionId = sessions[0]?.id ?? null
+      if (projectPath && activeSessionId)
+        settings = rememberProject(settings, projectPath, activeSessionId)
       return {
-        sessionId: created,
-        sessions: listDiskSessions(projectPath || undefined),
-        messages: [],
-        usage: usageFor(created)
+        sessionId: activeSessionId,
+        sessions,
+        messages:
+          projectPath && activeSessionId ? loadTranscript(projectPath, activeSessionId) : [],
+        usage: usageFor(activeSessionId)
       }
     }
-    return { sessionId: agent?.currentSessionId ?? null, sessions, messages: null, usage: null }
+    return { sessionId: activeSessionId, sessions, messages: null, usage: null }
   })
 
   ipcMain.handle(IPC.sendPrompt, async (_event, text: string) => {
-    if (!agent) throw new Error('Open a project first')
-    await agent.prompt(text)
+    if (!projectPath) throw new Error('Open a project first')
+    const live = await ensureAgent()
+    await live.prompt(text)
   })
 
   ipcMain.handle(IPC.cancel, async () => {
@@ -267,4 +322,10 @@ export function registerIpc(getWindow: () => BrowserWindow | null): void {
     await writeFile(result.filePath, payload.content, 'utf8')
     return true
   })
+
+  return {
+    releaseIfIdle: () => {
+      if (!agent?.isRunning) void releaseAgent()
+    }
+  }
 }
