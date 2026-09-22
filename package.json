@@ -1,5 +1,6 @@
 {
   "name": "grok-desktop",
+  "productName": "Grok Desktop",
   "version": "0.1.0",
   "description": "Desktop app for Grok Build — a Claude Code-like GUI over the official grok CLI via ACP.",
   "author": "vishwam1158",
@@ -34,6 +35,7 @@
     "pack": "npm run typecheck && npm run build && electron-builder --dir",
     "dist": "npm run typecheck && npm run build && electron-builder",
     "dist:mac": "npm run typecheck && npm run build && electron-builder --mac",
+    "install:mac": "npm run build && CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder --mac dir --arm64",
     "dist:win": "npm run typecheck && npm run build && electron-builder --win",
     "dist:linux": "npm run typecheck && npm run build && electron-builder --linux"
   },

@@ -46,13 +46,32 @@ Useful scripts:
 | `npm test`          | Unit tests                      |
 | `npm run typecheck` | Main and renderer TypeScript    |
 | `npm run lint`      | ESLint                          |
-| `npm run dist:mac`  | Packaged `.dmg` / `.zip`        |
+| `npm run dist:mac`    | Packaged macOS `.app` / `.dmg` |
+| `npm run install:mac` | Build and write `Grok Desktop.app` |
 
 If `npm run dev` fails with `Error: Electron uninstall`, the Chromium binary did not finish downloading. Restore it and retry:
 
 ```bash
 npm run electron:install
 npm run dev
+```
+
+## Install on this Mac
+
+`npm run dev` is a preview. It shows up as **Electron** in the Dock and is not installed.
+
+To put a real **Grok Desktop** app in `/Applications`:
+
+```bash
+cd /Users/vishwam/Projects/Grok-desktop
+npm run install:mac
+```
+
+Then open **Grok Desktop** from Applications, Spotlight, or Launchpad. The first launch on an unsigned local build may need:
+
+```bash
+xattr -cr "/Applications/Grok Desktop.app"
+open -a "Grok Desktop"
 ```
 
 ## Architecture

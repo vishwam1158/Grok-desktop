@@ -1,9 +1,12 @@
-import { app, BrowserWindow, Menu, shell } from 'electron'
+import { join } from 'node:path'
+import { app, BrowserWindow, Menu, nativeImage, shell } from 'electron'
 import { electronApp, optimizer } from '@electron-toolkit/utils'
 import { registerIpc } from './ipc'
 import { createMainWindow } from './window'
 
 let mainWindow: BrowserWindow | null = null
+
+app.setName('Grok Desktop')
 
 function buildMenu(): void {
   const isMac = process.platform === 'darwin'
@@ -95,6 +98,13 @@ function buildMenu(): void {
 
 app.whenReady().then(() => {
   electronApp.setAppUserModelId('com.vishwam.grokdesktop')
+  if (process.platform === 'darwin') {
+    const iconFile = app.isPackaged
+      ? join(process.resourcesPath, 'icon.png')
+      : join(__dirname, '../../resources/icon.png')
+    const image = nativeImage.createFromPath(iconFile)
+    if (!image.isEmpty()) app.dock?.setIcon(image)
+  }
   app.on('browser-window-created', (_, window) => optimizer.watchWindowShortcuts(window))
   registerIpc(() => mainWindow)
   buildMenu()

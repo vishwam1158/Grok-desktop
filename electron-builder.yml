@@ -7,7 +7,9 @@ directories:
 files:
   - out/**/*
   - package.json
-  - resources/icon.png
+extraResources:
+  - from: resources/icon.png
+    to: icon.png
 asar: true
 asarUnpack:
   - '**/*.node'
@@ -15,19 +17,25 @@ extraMetadata:
   main: out/main/index.js
 mac:
   category: public.app-category.developer-tools
-  icon: resources/icon.png
+  icon: resources/icon.icns
+  artifactName: ${productName}-${version}-${arch}.${ext}
   target:
+    - target: dir
+      arch:
+        - arm64
     - target: dmg
       arch:
         - arm64
-        - x64
-    - target: zip
-      arch:
-        - arm64
-        - x64
   hardenedRuntime: true
   gatekeeperAssess: false
+  identity: null
+  entitlements: resources/entitlements.mac.plist
   entitlementsInherit: resources/entitlements.mac.plist
+  extendInfo:
+    CFBundleName: Grok Desktop
+    CFBundleDisplayName: Grok Desktop
+    CFBundleSpokenName: Grok Desktop
+    NSHighResolutionCapable: true
 dmg:
   artifactName: ${productName}-${version}-${arch}.${ext}
 win:
