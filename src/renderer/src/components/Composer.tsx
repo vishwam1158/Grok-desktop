@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ArrowUp, Square } from 'lucide-react'
+import { ArrowUp, Paperclip, Square, X } from 'lucide-react'
 import { filterCommands, type SlashCommand } from '@shared/commands'
 import { useAppStore } from '../store'
 import { CommandMenu } from './CommandMenu'
@@ -7,7 +7,10 @@ import { CommandMenu } from './CommandMenu'
 export function Composer(): React.JSX.Element | null {
   const projectPath = useAppStore((state) => state.projectPath)
   const draft = useAppStore((state) => state.draft)
+  const attachments = useAppStore((state) => state.attachments)
   const setDraft = useAppStore((state) => state.setDraft)
+  const addAttachments = useAppStore((state) => state.addAttachments)
+  const removeAttachment = useAppStore((state) => state.removeAttachment)
   const send = useAppStore((state) => state.send)
   const cancel = useAppStore((state) => state.cancel)
   const running = useAppStore((state) => state.status.connection === 'running')
@@ -21,7 +24,7 @@ export function Composer(): React.JSX.Element | null {
   const patchSettings = useAppStore((state) => state.patchSettings)
   const ref = useRef<HTMLTextAreaElement>(null)
   const [selected, setSelected] = useState(0)
-  const canSend = Boolean(draft.trim()) && !running
+  const canSend = (Boolean(draft.trim()) || attachments.length > 0) && !running
   const slashQuery = draft.startsWith('/') ? draft.slice(1).split(/\s/)[0] : paletteOpen ? '' : null
   const showMenu = slashQuery !== null && !draft.slice(1).includes(' ')
   const items = useMemo(
@@ -77,8 +80,48 @@ export function Composer(): React.JSX.Element | null {
             onSelect={pick}
           />
         ) : null}
-        <div className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow)]">
+        <div
+          className="rounded-[22px] border border-[var(--border)] bg-[var(--bg-elevated)] p-3 shadow-[var(--shadow)]"
+          onDragOver={(event) => event.preventDefault()}
+          onDrop={(event) => {
+            event.preventDefault()
+            const files = [...event.dataTransfer.files]
+              .map((file) => {
+                const path = window.grok.pathForFile(file)
+                return path ? { id: `${file.name}-${path}`, name: file.name, path } : null
+              })
+              .filter((file): file is { id: string; name: string; path: string } => Boolean(file))
+            if (files.length) addAttachments(files)
+          }}
+        >
+          {attachments.length > 0 ? (
+            <div className="mb-2 flex flex-wrap gap-1.5 px-1">
+              {attachments.map((file) => (
+                <span
+                  key={file.id}
+                  className="inline-flex max-w-full items-center gap-1 rounded-full border border-[var(--border)] bg-[var(--bg)] px-2 py-1 text-[12px]"
+                >
+                  <span className="truncate">{file.name}</span>
+                  <button title="Remove" onClick={() => removeAttachment(file.id)}>
+                    <X size={12} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          ) : null}
           <div className="flex items-end gap-2">
+            <button
+              className="icon-btn mb-1"
+              title="Attach files"
+              disabled={running}
+              onClick={() => {
+                void window.grok.pickFiles().then((files) => {
+                  if (files?.length) addAttachments(files)
+                })
+              }}
+            >
+              <Paperclip size={16} />
+            </button>
             <textarea
               ref={ref}
               value={draft}

@@ -1,7 +1,8 @@
-import { contextBridge, ipcRenderer } from 'electron'
+import { contextBridge, ipcRenderer, webUtils } from 'electron'
 import {
   IPC,
   type AppSettings,
+  type ChatAttachment,
   type PermissionRequest,
   type SessionUpdateEvent
 } from '../shared/types'
@@ -11,6 +12,7 @@ const grok = {
   setSettings: (patch: Partial<AppSettings>) => ipcRenderer.invoke(IPC.setSettings, patch),
   getAccount: () => ipcRenderer.invoke(IPC.getAccount),
   getUsage: (sessionId?: string) => ipcRenderer.invoke(IPC.getUsage, sessionId),
+  getAllowance: () => ipcRenderer.invoke(IPC.getAllowance),
   listModels: () => ipcRenderer.invoke(IPC.listModels),
   pickProject: () => ipcRenderer.invoke(IPC.pickProject),
   openProject: (cwd: string) => ipcRenderer.invoke(IPC.openProject, cwd),
@@ -22,7 +24,10 @@ const grok = {
   newChat: () => ipcRenderer.invoke(IPC.newChat),
   loadSession: (sessionId: string) => ipcRenderer.invoke(IPC.loadSession, sessionId),
   deleteSession: (sessionId: string) => ipcRenderer.invoke(IPC.deleteSession, sessionId),
-  sendPrompt: (text: string) => ipcRenderer.invoke(IPC.sendPrompt, text),
+  sendPrompt: (text: string, attachments?: ChatAttachment[]) =>
+    ipcRenderer.invoke(IPC.sendPrompt, { text, attachments }),
+  pickFiles: () => ipcRenderer.invoke(IPC.pickFiles),
+  pathForFile: (file: File) => webUtils.getPathForFile(file),
   cancel: () => ipcRenderer.invoke(IPC.cancel),
   respondPermission: (requestId: string, optionId: string | null) =>
     ipcRenderer.invoke(IPC.respondPermission, { requestId, optionId }),

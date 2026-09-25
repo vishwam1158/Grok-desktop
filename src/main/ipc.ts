@@ -1,6 +1,8 @@
+import { basename } from 'node:path'
 import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
-import { EMPTY_USAGE, IPC, type AppSettings } from '../shared/types'
+import { EMPTY_USAGE, IPC, type AppSettings, type ChatAttachment } from '../shared/types'
 import { detectAuth, readAccount, readGrokVersion, runGrokLogin, runGrokLogout } from './auth'
+import { fetchAllowance } from './billing'
 import { GrokAgent } from './grok-agent'
 import { listGrokModels } from './models'
 import { resolveGrokBinary } from './paths'
@@ -171,6 +173,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): {
   ipcMain.handle(IPC.getUsage, (_event, sessionId?: string) =>
     usageFor(sessionId || agent?.currentSessionId || null)
   )
+  ipcMain.handle(IPC.getAllowance, () => fetchAllowance())
   ipcMain.handle(IPC.listModels, async () => {
     const binary = resolveGrokBinary(settings.grokBinary)
     return binary ? listGrokModels(binary) : []
@@ -271,11 +274,31 @@ export function registerIpc(getWindow: () => BrowserWindow | null): {
     return { sessionId: activeSessionId, sessions, messages: null, usage: null }
   })
 
-  ipcMain.handle(IPC.sendPrompt, async (_event, text: string) => {
-    if (!projectPath) throw new Error('Open a project first')
-    const live = await ensureAgent()
-    await live.prompt(text)
+  ipcMain.handle(IPC.pickFiles, async () => {
+    const window = getWindow()
+    const options: Electron.OpenDialogOptions = {
+      title: 'Attach files',
+      properties: ['openFile', 'multiSelections']
+    }
+    const result = window
+      ? await dialog.showOpenDialog(window, options)
+      : await dialog.showOpenDialog(options)
+    if (result.canceled) return []
+    return result.filePaths.map((filePath) => ({
+      id: `${Date.now()}-${basename(filePath)}`,
+      name: basename(filePath),
+      path: filePath
+    }))
   })
+
+  ipcMain.handle(
+    IPC.sendPrompt,
+    async (_event, payload: { text: string; attachments?: ChatAttachment[] }) => {
+      if (!projectPath) throw new Error('Open a project first')
+      const live = await ensureAgent()
+      await live.prompt(payload.text, payload.attachments ?? [])
+    }
+  )
 
   ipcMain.handle(IPC.cancel, async () => {
     await agent?.cancel()

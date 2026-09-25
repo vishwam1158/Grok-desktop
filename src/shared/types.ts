@@ -46,6 +46,28 @@ export interface ModelOption {
   isDefault: boolean
 }
 
+export interface AllowanceSnapshot {
+  period: 'weekly' | 'monthly' | 'period' | null
+  usedPercent: number | null
+  remainingPercent: number | null
+  periodStart: string | null
+  periodEnd: string | null
+  prepaidBalance: number | null
+  buildPercent: number | null
+  error: string | null
+}
+
+export const EMPTY_ALLOWANCE: AllowanceSnapshot = {
+  period: null,
+  usedPercent: null,
+  remainingPercent: null,
+  periodStart: null,
+  periodEnd: null,
+  prepaidBalance: null,
+  buildPercent: null,
+  error: null
+}
+
 export interface UsageSnapshot {
   sessionId: string | null
   inputTokens: number
@@ -85,6 +107,12 @@ export interface PermissionRequest {
   title: string
   toolCallId?: string
   options: PermissionOption[]
+}
+
+export interface ChatAttachment {
+  id: string
+  name: string
+  path: string
 }
 
 export interface ContentBlock {
@@ -167,6 +195,7 @@ export const IPC = {
   setSettings: 'grok:set-settings',
   getAccount: 'grok:get-account',
   getUsage: 'grok:get-usage',
+  getAllowance: 'grok:get-allowance',
   listModels: 'grok:list-models',
   pickProject: 'grok:pick-project',
   openProject: 'grok:open-project',
@@ -178,6 +207,7 @@ export const IPC = {
   loadSession: 'grok:load-session',
   deleteSession: 'grok:delete-session',
   sendPrompt: 'grok:send-prompt',
+  pickFiles: 'grok:pick-files',
   cancel: 'grok:cancel',
   respondPermission: 'grok:respond-permission',
   login: 'grok:login',

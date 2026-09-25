@@ -2,14 +2,16 @@ import { spawn, type ChildProcess } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { createReadStream } from 'node:fs'
 import { readFile, writeFile } from 'node:fs/promises'
+import { pathToFileURL } from 'node:url'
 import { homedir } from 'node:os'
-import { isAbsolute, join, relative, resolve } from 'node:path'
+import { extname, isAbsolute, join, relative, resolve } from 'node:path'
 import { Readable, Writable } from 'node:stream'
 import * as acp from '@agentclientprotocol/sdk'
 import type {
   AccountInfo,
   AgentConnectionState,
   AppSettings,
+  ChatAttachment,
   PermissionMode,
   PermissionRequest,
   SessionUpdateEvent
@@ -35,6 +37,45 @@ export function buildAgentArgs(settings: Pick<AppSettings, 'model' | 'reasoningE
   if (settings.reasoningEffort) args.push('--reasoning-effort', settings.reasoningEffort)
   args.push('--no-leader', 'stdio')
   return args
+}
+
+const IMAGE_EXT: Record<string, string> = {
+  '.png': 'image/png',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp'
+}
+
+async function promptBlocks(text: string, attachments: ChatAttachment[]) {
+  const blocks: Array<
+    | { type: 'text'; text: string }
+    | { type: 'image'; mimeType: string; data: string; uri: string }
+    | { type: 'resource_link'; name: string; uri: string; mimeType?: string }
+  > = []
+  if (text.trim()) blocks.push({ type: 'text', text })
+  for (const file of attachments) {
+    const ext = extname(file.path).toLowerCase()
+    const uri = pathToFileURL(file.path).href
+    const imageType = IMAGE_EXT[ext]
+    if (imageType) {
+      const bytes = await readFile(file.path)
+      if (bytes.byteLength > 12 * 1024 * 1024) {
+        throw new Error(`${file.name} is larger than 12 MB`)
+      }
+      blocks.push({ type: 'image', mimeType: imageType, data: bytes.toString('base64'), uri })
+    } else {
+      blocks.push({
+        type: 'resource_link',
+        name: file.name,
+        uri,
+        mimeType: 'application/octet-stream'
+      })
+      blocks.push({ type: 'text', text: `Attached file: ${file.path}` })
+    }
+  }
+  if (blocks.length === 0) blocks.push({ type: 'text', text: '' })
+  return blocks
 }
 
 function sessionMeta(mode: PermissionMode): Record<string, unknown> {
@@ -210,7 +251,7 @@ export class GrokAgent {
     return sessionId
   }
 
-  async prompt(text: string): Promise<void> {
+  async prompt(text: string, attachments: ChatAttachment[] = []): Promise<void> {
     const agent = this.requireAgent()
     if (!this.sessionId) {
       await this.newSession()
@@ -220,10 +261,11 @@ export class GrokAgent {
     this.running = true
     this.events.onStatus('running')
     try {
-      const result = await agent.request(acp.methods.agent.session.prompt, {
+      const prompt = await promptBlocks(text, attachments)
+      const result = (await agent.request(acp.methods.agent.session.prompt, {
         sessionId,
-        prompt: [{ type: 'text', text }]
-      })
+        prompt
+      })) as { stopReason: string }
       this.events.onStop(sessionId, result.stopReason)
     } finally {
       this.running = false

@@ -1,15 +1,17 @@
 import { create } from 'zustand'
 import type {
   AccountInfo,
+  AllowanceSnapshot,
   AppSettings,
   GrokRuntimeStatus,
   ModelOption,
+  ChatAttachment,
   PermissionRequest,
   SessionSummary,
   SessionUpdate,
   UsageSnapshot
 } from '@shared/types'
-import { DEFAULT_SETTINGS, EMPTY_USAGE } from '@shared/types'
+import { DEFAULT_SETTINGS, EMPTY_ALLOWANCE, EMPTY_USAGE } from '@shared/types'
 import { findCommand, parseSlash } from '@shared/commands'
 import type { PermissionMode, ReasoningEffort } from '@shared/types'
 import {
@@ -26,12 +28,14 @@ interface AppState {
   account: AccountInfo
   models: ModelOption[]
   usage: UsageSnapshot
+  allowance: AllowanceSnapshot
   projectPath: string | null
   sessionId: string | null
   sessions: SessionSummary[]
   chatsByProject: Record<string, SessionSummary[]>
   messages: ChatMessage[]
   draft: string
+  attachments: ChatAttachment[]
   permission: PermissionRequest | null
   error: string | null
   notice: string | null
@@ -40,6 +44,8 @@ interface AppState {
   paletteOpen: boolean
   promptHistory: string[]
   setDraft: (draft: string) => void
+  addAttachments: (files: ChatAttachment[]) => void
+  removeAttachment: (id: string) => void
   setSettingsOpen: (open: boolean) => void
   setShortcutsOpen: (open: boolean) => void
   setPaletteOpen: (open: boolean) => void
@@ -57,6 +63,7 @@ interface AppState {
   newChat: () => Promise<void>
   newChatIn: (cwd: string) => Promise<void>
   refreshChats: () => Promise<void>
+  refreshAllowance: () => Promise<void>
   loadSession: (id: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   send: () => Promise<void>
@@ -107,12 +114,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   account: idleAccount,
   models: [],
   usage: EMPTY_USAGE,
+  allowance: EMPTY_ALLOWANCE,
   projectPath: null,
   sessionId: null,
   sessions: [],
   chatsByProject: {},
   messages: [],
   draft: '',
+  attachments: [],
   permission: null,
   error: null,
   notice: null,
@@ -121,6 +130,15 @@ export const useAppStore = create<AppState>((set, get) => ({
   paletteOpen: false,
   promptHistory: [],
   setDraft: (draft) => set({ draft }),
+  addAttachments: (files) =>
+    set((state) => ({
+      attachments: [
+        ...state.attachments,
+        ...files.filter((file) => !state.attachments.some((item) => item.path === file.path))
+      ]
+    })),
+  removeAttachment: (id) =>
+    set((state) => ({ attachments: state.attachments.filter((file) => file.id !== id) })),
   setSettingsOpen: (settingsOpen) => set({ settingsOpen }),
   setShortcutsOpen: (shortcutsOpen) => set({ shortcutsOpen }),
   setPaletteOpen: (paletteOpen) => set({ paletteOpen }),
@@ -134,10 +152,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       window.grok.listModels()
     ])
     set({ status, settings, account, models })
-    await get().refreshChats()
+    await Promise.all([get().refreshChats(), get().refreshAllowance()])
     if (settings.resumeLastProject && settings.lastProjectPath) {
       await get().openProject(settings.lastProjectPath)
     }
+  },
+
+  refreshAllowance: async () => {
+    const allowance = (await window.grok.getAllowance()) as AllowanceSnapshot
+    set({ allowance })
   },
 
   refreshChats: async () => {
@@ -285,24 +308,34 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   send: async () => {
     const text = get().draft.trim()
-    if (!text || get().status.connection === 'running') return
-    if (text.startsWith('/')) {
+    const attachments = get().attachments
+    if ((!text && attachments.length === 0) || get().status.connection === 'running') return
+    if (text.startsWith('/') && attachments.length === 0) {
       const result = await get().runSlash(text)
       if (result === 'handled') {
         set({ draft: '', paletteOpen: false })
         return
       }
     }
-    const history = [text, ...get().promptHistory.filter((item) => item !== text)].slice(0, 50)
+    const shown = [
+      text,
+      attachments.length ? `Attached: ${attachments.map((file) => file.name).join(', ')}` : ''
+    ]
+      .filter(Boolean)
+      .join('\n')
+    const history = text
+      ? [text, ...get().promptHistory.filter((item) => item !== text)].slice(0, 50)
+      : get().promptHistory
     set({
       draft: '',
-      messages: addUserMessage(get().messages, text),
+      attachments: [],
+      messages: addUserMessage(get().messages, shown),
       error: null,
       promptHistory: history,
       paletteOpen: false
     })
     try {
-      await window.grok.sendPrompt(text)
+      await window.grok.sendPrompt(text, attachments)
     } catch (error) {
       set({ error: error instanceof Error ? error.message : String(error) })
     }
@@ -484,6 +517,7 @@ export function bindGrokEvents(): () => void {
     }),
     window.grok.onStop(() => {
       void useAppStore.getState().refreshChats()
+      void useAppStore.getState().refreshAllowance()
     }),
     window.grok.onSession((payload) => {
       useAppStore.setState({ sessionId: payload.sessionId, projectPath: payload.cwd })

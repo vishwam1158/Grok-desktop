@@ -17,7 +17,17 @@ export default function App(): React.JSX.Element {
 
   useEffect(() => {
     void hydrate()
-    return bindGrokEvents()
+    const unbind = bindGrokEvents()
+    const timer = window.setInterval(
+      () => {
+        void useAppStore.getState().refreshAllowance()
+      },
+      5 * 60 * 1000
+    )
+    return () => {
+      window.clearInterval(timer)
+      unbind()
+    }
   }, [hydrate])
 
   return (
