@@ -6,6 +6,7 @@ import type {
   ModelOption,
   PermissionRequest,
   SessionSummary,
+  SessionUpdate,
   UsageSnapshot
 } from '@shared/types'
 import { DEFAULT_SETTINGS, EMPTY_USAGE } from '@shared/types'
@@ -28,6 +29,7 @@ interface AppState {
   projectPath: string | null
   sessionId: string | null
   sessions: SessionSummary[]
+  chatsByProject: Record<string, SessionSummary[]>
   messages: ChatMessage[]
   draft: string
   permission: PermissionRequest | null
@@ -47,10 +49,14 @@ interface AppState {
   cyclePermission: () => Promise<void>
   recallPrompt: (direction: 1 | -1) => void
   runSlash: (text: string) => Promise<'handled' | 'forward'>
+  goBack: () => void
+  leaveProject: () => Promise<void>
   hydrate: () => Promise<void>
   openProject: (cwd?: string) => Promise<void>
   removeProject: (cwd: string) => Promise<void>
   newChat: () => Promise<void>
+  newChatIn: (cwd: string) => Promise<void>
+  refreshChats: () => Promise<void>
   loadSession: (id: string) => Promise<void>
   deleteSession: (id: string) => Promise<void>
   send: () => Promise<void>
@@ -61,7 +67,25 @@ interface AppState {
   patchSettings: (patch: Partial<AppSettings>) => Promise<void>
 }
 
+const pendingUpdates: SessionUpdate[] = []
+let updateFrame = 0
+
+function queueSessionUpdate(update: SessionUpdate): void {
+  pendingUpdates.push(update)
+  if (updateFrame) return
+  updateFrame = requestAnimationFrame(() => {
+    updateFrame = 0
+    const batch = pendingUpdates.splice(0)
+    useAppStore.setState((state) => {
+      let messages = state.messages
+      for (const item of batch) messages = applySessionUpdate(messages, item)
+      return messages === state.messages ? state : { messages }
+    })
+  })
+}
+
 const idleStatus: GrokRuntimeStatus = {
+  appVersion: '0.1.0',
   binaryPath: null,
   version: null,
   authenticated: false,
@@ -86,6 +110,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   projectPath: null,
   sessionId: null,
   sessions: [],
+  chatsByProject: {},
   messages: [],
   draft: '',
   permission: null,
@@ -109,9 +134,26 @@ export const useAppStore = create<AppState>((set, get) => ({
       window.grok.listModels()
     ])
     set({ status, settings, account, models })
+    await get().refreshChats()
     if (settings.resumeLastProject && settings.lastProjectPath) {
       await get().openProject(settings.lastProjectPath)
     }
+  },
+
+  refreshChats: async () => {
+    const projects = get().settings.projects
+    const pairs = await Promise.all(
+      projects.map(async (project) => {
+        const sessions = (await window.grok.listSessions(project.path)) as SessionSummary[]
+        return [project.path, sessions] as const
+      })
+    )
+    const chatsByProject = Object.fromEntries(pairs)
+    const current = get().projectPath
+    set({
+      chatsByProject,
+      sessions: current ? (chatsByProject[current] ?? get().sessions) : get().sessions
+    })
   },
 
   openProject: async (cwd) => {
@@ -134,9 +176,59 @@ export const useAppStore = create<AppState>((set, get) => ({
         status: result.status,
         draft: ''
       })
+      await get().refreshChats()
     } catch (error) {
       set({ error: error instanceof Error ? error.message : String(error) })
     }
+  },
+
+  goBack: () => {
+    const state = get()
+    if (state.paletteOpen) {
+      set({ paletteOpen: false, draft: state.draft === '/' ? '' : state.draft })
+      return
+    }
+    if (state.shortcutsOpen) {
+      set({ shortcutsOpen: false })
+      return
+    }
+    if (state.settingsOpen) {
+      set({ settingsOpen: false })
+      return
+    }
+    if (state.permission) {
+      void get().respondPermission(null)
+      return
+    }
+    if (state.draft) {
+      set({ draft: '' })
+      return
+    }
+    if (state.projectPath) {
+      void get().leaveProject()
+      return
+    }
+    set({ notice: 'Home screen. ⌘Q quits the app.' })
+  },
+
+  leaveProject: async () => {
+    const status = await window.grok.leaveProject()
+    set({
+      status,
+      projectPath: null,
+      sessionId: null,
+      sessions: [],
+      messages: [],
+      usage: EMPTY_USAGE,
+      draft: '',
+      permission: null,
+      paletteOpen: false
+    })
+  },
+
+  newChatIn: async (cwd) => {
+    if (get().projectPath !== cwd) await get().openProject(cwd)
+    await get().newChat()
   },
 
   removeProject: async (cwd) => {
@@ -166,6 +258,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       permission: null,
       draft: ''
     })
+    await get().refreshChats()
   },
 
   loadSession: async (id) => {
@@ -187,6 +280,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       messages: result.messages ?? get().messages,
       usage: result.usage ?? get().usage
     })
+    await get().refreshChats()
   },
 
   send: async () => {
@@ -383,18 +477,13 @@ export function bindGrokEvents(): () => void {
       useAppStore.setState({ status: status as GrokRuntimeStatus })
     }),
     window.grok.onUpdate((event) => {
-      useAppStore.setState((state) => ({
-        messages: applySessionUpdate(state.messages, event.update)
-      }))
+      queueSessionUpdate(event.update)
     }),
     window.grok.onPermission((permission) => {
       useAppStore.setState({ permission })
     }),
     window.grok.onStop(() => {
-      const cwd = useAppStore.getState().projectPath
-      void window.grok.listSessions(cwd ?? undefined).then((sessions) => {
-        useAppStore.setState({ sessions })
-      })
+      void useAppStore.getState().refreshChats()
     }),
     window.grok.onSession((payload) => {
       useAppStore.setState({ sessionId: payload.sessionId, projectPath: payload.cwd })

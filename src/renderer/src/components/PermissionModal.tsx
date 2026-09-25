@@ -6,7 +6,12 @@ export function PermissionModal(): React.JSX.Element | null {
   if (!permission) return null
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) void respondPermission(null)
+      }}
+    >
       <div className="w-full max-w-md rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow)]">
         <div className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
           Permission

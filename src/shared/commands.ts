@@ -182,7 +182,9 @@ export const KEYBOARD_SHORTCUTS = [
   { keys: '⇧⌘C', action: 'Copy last reply' },
   { keys: '⇧⌘E', action: 'Export chat' },
   { keys: '↑', action: 'Previous prompt (empty composer)' },
-  { keys: 'Esc', action: 'Close menu · press twice to clear draft' },
+  { keys: 'Esc', action: 'Back: close the panel, then leave the project' },
+  { keys: '⌥← or swipe →', action: 'Same as Back' },
+  { keys: '⌘Q', action: 'Quit Grok Desktop' },
   { keys: '1–9', action: 'Pick a permission option' }
 ]
 

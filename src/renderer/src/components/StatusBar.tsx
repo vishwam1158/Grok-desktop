@@ -16,6 +16,7 @@ export function StatusBar(): React.JSX.Element {
           className={`pulse-dot ${running ? '' : failed ? 'error' : 'idle'}`}
           title={status.connection}
         />
+        <span title="Grok Desktop version">v{status.appVersion}</span>
         <span>{settings.model}</span>
         {usage.contextWindowTokens > 0 ? (
           <span

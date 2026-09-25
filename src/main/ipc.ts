@@ -1,4 +1,4 @@
-import { dialog, ipcMain, type BrowserWindow } from 'electron'
+import { app, dialog, ipcMain, type BrowserWindow } from 'electron'
 import { EMPTY_USAGE, IPC, type AppSettings } from '../shared/types'
 import { detectAuth, readAccount, readGrokVersion, runGrokLogin, runGrokLogout } from './auth'
 import { GrokAgent } from './grok-agent'
@@ -46,6 +46,7 @@ export function registerIpc(getWindow: () => BrowserWindow | null): {
             ? 'running'
             : 'ready'
     return {
+      appVersion: app.getVersion(),
       binaryPath: binary,
       version: cachedVersion,
       authenticated: auth.authenticated,
@@ -194,6 +195,13 @@ export function registerIpc(getWindow: () => BrowserWindow | null): {
   })
 
   ipcMain.handle(IPC.openProject, async (_event, cwd: string) => openAt(cwd))
+
+  ipcMain.handle(IPC.leaveProject, async () => {
+    await releaseAgent()
+    projectPath = null
+    activeSessionId = null
+    return statusPayload()
+  })
 
   ipcMain.handle(IPC.removeProject, (_event, cwd: string) => {
     settings = forgetProject(settings, cwd)

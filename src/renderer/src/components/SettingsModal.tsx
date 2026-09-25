@@ -16,7 +16,12 @@ export function SettingsModal(): React.JSX.Element | null {
   if (!open) return null
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+    <div
+      className="absolute inset-0 z-20 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setSettingsOpen(false)
+      }}
+    >
       <div className="max-h-[85vh] w-full max-w-lg overflow-auto rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Settings</h2>
@@ -26,6 +31,19 @@ export function SettingsModal(): React.JSX.Element | null {
         </div>
 
         <section className="mt-5 rounded-2xl border border-[var(--border)] p-4">
+          <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
+            This app
+          </h3>
+          <div className="mt-2 text-[14px]">Grok Desktop {status.appVersion}</div>
+          <div className="mt-1 text-[13px] text-[var(--text-muted)]">
+            Back, Esc, or a swipe from the left edge leaves the current screen. ⌘Q quits.
+          </div>
+          <div className="mt-1 text-[13px] text-[var(--text-muted)]">
+            Grok CLI: {status.version ?? 'not found'}
+          </div>
+        </section>
+
+        <section className="mt-4 rounded-2xl border border-[var(--border)] p-4">
           <h3 className="text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
             Account
           </h3>

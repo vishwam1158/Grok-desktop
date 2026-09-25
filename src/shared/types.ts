@@ -3,12 +3,7 @@ export type PermissionMode = 'ask' | 'auto' | 'always-approve'
 export type ReasoningEffort = 'low' | 'medium' | 'high' | 'xhigh'
 
 export type AgentConnectionState =
-  | 'disconnected'
-  | 'idle'
-  | 'connecting'
-  | 'ready'
-  | 'running'
-  | 'error'
+  'disconnected' | 'idle' | 'connecting' | 'ready' | 'running' | 'error'
 
 export interface ProjectRecord {
   path: string
@@ -30,6 +25,7 @@ export interface AppSettings {
 }
 
 export interface GrokRuntimeStatus {
+  appVersion: string
   binaryPath: string | null
   version: string | null
   authenticated: boolean
@@ -175,6 +171,7 @@ export const IPC = {
   pickProject: 'grok:pick-project',
   openProject: 'grok:open-project',
   removeProject: 'grok:remove-project',
+  leaveProject: 'grok:leave-project',
   listSessions: 'grok:list-sessions',
   loadTranscript: 'grok:load-transcript',
   newChat: 'grok:new-chat',

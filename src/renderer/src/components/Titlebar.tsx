@@ -1,4 +1,4 @@
-import { Minus, Settings, Square, X } from 'lucide-react'
+import { ChevronLeft, Minus, Settings, Square, X } from 'lucide-react'
 import { useAppStore } from '../store'
 
 const isMac = navigator.userAgent.includes('Mac')
@@ -6,12 +6,27 @@ const isMac = navigator.userAgent.includes('Mac')
 export function Titlebar(): React.JSX.Element {
   const projectPath = useAppStore((state) => state.projectPath)
   const account = useAppStore((state) => state.account)
+  const appVersion = useAppStore((state) => state.status.appVersion)
+  const overlay = useAppStore(
+    (state) =>
+      state.settingsOpen || state.shortcutsOpen || state.paletteOpen || Boolean(state.permission)
+  )
   const setSettingsOpen = useAppStore((state) => state.setSettingsOpen)
+  const goBack = useAppStore((state) => state.goBack)
+  const canGoBack = overlay || Boolean(projectPath)
   const label = projectPath?.split(/[/\\]/).filter(Boolean).pop() ?? 'Grok Desktop'
 
   return (
     <header className="drag-region flex h-12 items-center border-b border-[var(--border)] bg-[var(--bg-sidebar)] px-3">
-      {isMac ? <div className="w-[72px]" /> : null}
+      <div className={`no-drag flex items-center ${isMac ? 'pl-[72px]' : ''}`}>
+        {canGoBack ? (
+          <button className="icon-btn" title="Back  Esc" onClick={() => goBack()}>
+            <ChevronLeft size={18} />
+          </button>
+        ) : (
+          <span className="px-2 text-[11px] text-[var(--text-muted)]">v{appVersion}</span>
+        )}
+      </div>
       <div className="flex flex-1 items-center justify-center text-[13px] text-[var(--text-muted)]">
         <span className="truncate rounded-full border border-[var(--border)] bg-[var(--bg)] px-3 py-1">
           {label}

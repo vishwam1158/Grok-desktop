@@ -1,4 +1,5 @@
-import { FolderPlus, MessageSquare, Plus, Trash2 } from 'lucide-react'
+import { useEffect, useState } from 'react'
+import { ChevronDown, ChevronRight, FolderPlus, MessageSquare, Plus, Trash2 } from 'lucide-react'
 import { projectName } from '@shared/format'
 import { relativeTime } from '../lib/time'
 import { useAppStore } from '../store'
@@ -6,24 +7,33 @@ import { Mark } from './Mark'
 
 export function Sidebar(): React.JSX.Element {
   const settings = useAppStore((state) => state.settings)
-  const sessions = useAppStore((state) => state.sessions)
+  const chatsByProject = useAppStore((state) => state.chatsByProject)
   const sessionId = useAppStore((state) => state.sessionId)
   const projectPath = useAppStore((state) => state.projectPath)
   const openProject = useAppStore((state) => state.openProject)
   const removeProject = useAppStore((state) => state.removeProject)
-  const newChat = useAppStore((state) => state.newChat)
+  const newChatIn = useAppStore((state) => state.newChatIn)
   const loadSession = useAppStore((state) => state.loadSession)
   const deleteSession = useAppStore((state) => state.deleteSession)
   const projects = settings.projects
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+
+  useEffect(() => {
+    if (projectPath) {
+      setCollapsed((current) => ({ ...current, [projectPath]: false }))
+    }
+  }, [projectPath])
 
   return (
-    <aside className="flex w-[292px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
+    <aside className="flex w-[300px] shrink-0 flex-col border-r border-[var(--border)] bg-[var(--bg-sidebar)]">
       <div className="flex items-center justify-between px-4 pb-3 pt-4">
         <div className="flex items-center gap-2.5">
           <Mark className="h-8 w-8" />
           <div>
             <div className="text-[14px] font-semibold tracking-tight">Grok Desktop</div>
-            <div className="text-[11px] text-[var(--text-muted)]">Build</div>
+            <div className="text-[11px] text-[var(--text-muted)]">
+              {projects.length} {projects.length === 1 ? 'project' : 'projects'}
+            </div>
           </div>
         </div>
         <button className="icon-btn" onClick={() => void openProject()} title="Add project">
@@ -42,8 +52,10 @@ export function Sidebar(): React.JSX.Element {
         ) : (
           projects.map((project) => {
             const active = project.path === projectPath
+            const chats = chatsByProject[project.path] ?? []
+            const isCollapsed = collapsed[project.path] === true
             return (
-              <div key={project.path} className="mb-1">
+              <section key={project.path} className="mb-2">
                 <div
                   className={`group flex items-center rounded-xl ${
                     active
@@ -52,48 +64,64 @@ export function Sidebar(): React.JSX.Element {
                   }`}
                 >
                   <button
-                    className="min-w-0 flex-1 truncate px-3 py-2 text-left text-[13px] font-medium"
+                    className="icon-btn h-8 w-7 shrink-0"
+                    title={isCollapsed ? 'Show chats' : 'Hide chats'}
+                    onClick={() =>
+                      setCollapsed((current) => ({
+                        ...current,
+                        [project.path]: !isCollapsed
+                      }))
+                    }
+                  >
+                    {isCollapsed ? <ChevronRight size={14} /> : <ChevronDown size={14} />}
+                  </button>
+                  <button
+                    className="min-w-0 flex-1 truncate py-2 text-left text-[13px] font-medium"
                     onClick={() => void openProject(project.path)}
                     title={project.path}
                   >
                     {project.name || projectName(project.path)}
+                    <span className="ml-1.5 text-[11px] font-normal text-[var(--text-muted)]">
+                      {chats.length}
+                    </span>
                   </button>
                   <button
-                    className="icon-btn mr-1 opacity-0 group-hover:opacity-100 hover:text-[var(--danger)]"
+                    className="icon-btn h-8 w-8"
+                    title="New chat in this folder"
+                    onClick={() => void newChatIn(project.path)}
+                  >
+                    <Plus size={14} />
+                  </button>
+                  <button
+                    className="icon-btn mr-1 h-8 w-8 hover:text-[var(--danger)]"
                     title="Remove project"
-                    onClick={(event) => {
-                      event.stopPropagation()
-                      void removeProject(project.path)
-                    }}
+                    onClick={() => void removeProject(project.path)}
                   >
                     <Trash2 size={13} />
                   </button>
                 </div>
-                {active ? (
-                  <div className="mt-1 mb-3 ml-2 border-l border-[var(--border)] pl-2">
-                    <div className="mb-1 flex items-center justify-between px-1 pt-1">
-                      <span className="text-[10px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
-                        Chats
-                      </span>
+                {isCollapsed ? null : (
+                  <div className="mt-0.5 ml-3 border-l border-[var(--border)] pl-1.5">
+                    {chats.length === 0 ? (
                       <button
-                        className="icon-btn h-7 w-7"
-                        title="New chat"
-                        onClick={() => void newChat()}
+                        className="w-full rounded-lg px-2 py-2 text-left text-[12px] text-[var(--text-muted)] hover:bg-[var(--bg-hover)]"
+                        onClick={() => void newChatIn(project.path)}
                       >
-                        <Plus size={14} />
+                        New chat
                       </button>
-                    </div>
-                    {sessions.length === 0 ? (
-                      <div className="px-2 py-3 text-[12px] text-[var(--text-muted)]">
-                        No chats yet
-                      </div>
                     ) : (
-                      sessions.map((session) => (
+                      chats.map((session) => (
                         <div key={session.id} className="group/chat flex items-center">
                           <button
-                            onClick={() => void loadSession(session.id)}
+                            onClick={() => {
+                              if (projectPath !== project.path) {
+                                void openProject(project.path).then(() => loadSession(session.id))
+                                return
+                              }
+                              void loadSession(session.id)
+                            }}
                             className={`min-w-0 flex-1 rounded-lg px-2 py-1.5 text-left ${
-                              session.id === sessionId
+                              active && session.id === sessionId
                                 ? 'bg-[rgba(240,215,168,0.08)]'
                                 : 'hover:bg-[var(--bg-hover)]'
                             }`}
@@ -113,9 +141,12 @@ export function Sidebar(): React.JSX.Element {
                             className="icon-btn h-7 w-7 opacity-0 group-hover/chat:opacity-100 hover:text-[var(--danger)]"
                             title="Delete chat"
                             onClick={() => {
-                              if (confirm('Delete this chat from Grok history?')) {
-                                void deleteSession(session.id)
+                              if (!confirm('Delete this chat from Grok history?')) return
+                              if (projectPath !== project.path) {
+                                void openProject(project.path).then(() => deleteSession(session.id))
+                                return
                               }
+                              void deleteSession(session.id)
                             }}
                           >
                             <Trash2 size={12} />
@@ -124,8 +155,8 @@ export function Sidebar(): React.JSX.Element {
                       ))
                     )}
                   </div>
-                ) : null}
-              </div>
+                )}
+              </section>
             )
           })
         )}

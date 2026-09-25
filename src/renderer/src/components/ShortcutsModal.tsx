@@ -8,7 +8,12 @@ export function ShortcutsModal(): React.JSX.Element | null {
   if (!open) return null
 
   return (
-    <div className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm">
+    <div
+      className="absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-6 backdrop-blur-sm"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) setShortcutsOpen(false)
+      }}
+    >
       <div className="max-h-[85vh] w-full max-w-2xl overflow-auto rounded-3xl border border-[var(--border)] bg-[var(--bg-elevated)] p-6 shadow-[var(--shadow)]">
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold">Commands and shortcuts</h2>

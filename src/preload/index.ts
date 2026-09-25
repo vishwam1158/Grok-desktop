@@ -15,6 +15,7 @@ const grok = {
   pickProject: () => ipcRenderer.invoke(IPC.pickProject),
   openProject: (cwd: string) => ipcRenderer.invoke(IPC.openProject, cwd),
   removeProject: (cwd: string) => ipcRenderer.invoke(IPC.removeProject, cwd),
+  leaveProject: () => ipcRenderer.invoke(IPC.leaveProject),
   listSessions: (cwd?: string) => ipcRenderer.invoke(IPC.listSessions, cwd),
   loadTranscript: (sessionId: string, cwd?: string) =>
     ipcRenderer.invoke(IPC.loadTranscript, { sessionId, cwd }),

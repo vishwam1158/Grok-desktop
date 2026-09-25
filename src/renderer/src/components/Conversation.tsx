@@ -1,8 +1,8 @@
-import { useEffect, useRef } from 'react'
+import { memo, useLayoutEffect, useRef } from 'react'
 import { Markdown } from './Markdown'
 import { Mark } from './Mark'
 import { useAppStore } from '../store'
-import type { AssistantPart } from '../lib/conversation'
+import type { AssistantPart, ChatMessage } from '../lib/conversation'
 
 function ToolCard({ part }: { part: Extract<AssistantPart, { type: 'tool' }> }): React.JSX.Element {
   const tone =
@@ -20,22 +20,91 @@ function ToolCard({ part }: { part: Extract<AssistantPart, { type: 'tool' }> }):
         </span>
       </summary>
       <pre className="max-h-72 overflow-auto border-t border-[var(--border)] p-3 text-[12px] text-[var(--text-muted)]">
-        {JSON.stringify({ input: part.rawInput, output: part.rawOutput }, null, 2)}
+        {previewJson({ input: part.rawInput, output: part.rawOutput })}
       </pre>
     </details>
   )
 }
+
+function previewJson(value: unknown): string {
+  const text = JSON.stringify(value, null, 2)
+  if (text.length <= 4000) return text
+  return `${text.slice(0, 4000)}\n…`
+}
+
+const MessageRow = memo(function MessageRow({
+  message,
+  showThinking
+}: {
+  message: ChatMessage
+  showThinking: boolean
+}): React.JSX.Element {
+  if (message.role === 'user') {
+    return (
+      <div className="flex justify-end">
+        <div className="max-w-[78%] rounded-[22px] bg-[var(--bg-user)] px-4 py-3 text-[15px] leading-6 shadow-[inset_0_0_0_1px_rgba(240,215,168,0.12)]">
+          <div className="whitespace-pre-wrap">{message.text}</div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex flex-col gap-3">
+      {message.parts.map((part, index) => {
+        if (part.type === 'thought') {
+          if (!showThinking) return null
+          return (
+            <div
+              key={index}
+              className="rounded-xl border-l-2 border-[rgba(240,215,168,0.35)] bg-[rgba(240,215,168,0.05)] px-3 py-2 text-[13px] leading-5 text-[var(--thought)]"
+            >
+              {part.text}
+            </div>
+          )
+        }
+        if (part.type === 'tool') {
+          return <ToolCard key={part.toolCallId} part={part} />
+        }
+        if (part.type === 'plan') {
+          return (
+            <div
+              key={index}
+              className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-3"
+            >
+              {part.entries.map((entry, entryIndex) => (
+                <div key={entryIndex} className="flex gap-2 py-0.5 text-[13px]">
+                  <span className="w-16 shrink-0 text-[var(--text-muted)]">
+                    {entry.status ?? 'pending'}
+                  </span>
+                  <span>{entry.content}</span>
+                </div>
+              ))}
+            </div>
+          )
+        }
+        return <Markdown key={index} text={part.text} />
+      })}
+    </div>
+  )
+})
 
 export function Conversation(): React.JSX.Element {
   const messages = useAppStore((state) => state.messages)
   const projectPath = useAppStore((state) => state.projectPath)
   const connection = useAppStore((state) => state.status.connection)
   const showThinking = useAppStore((state) => state.settings.showThinking)
-  const bottom = useRef<HTMLDivElement>(null)
+  const scroller = useRef<HTMLDivElement>(null)
+  const pinToBottom = useRef(true)
 
-  useEffect(() => {
-    bottom.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages])
+  useLayoutEffect(() => {
+    const el = scroller.current
+    if (!el) return
+    const last = messages[messages.length - 1]
+    if (last?.role === 'user') pinToBottom.current = true
+    if (!pinToBottom.current) return
+    el.scrollTop = el.scrollHeight
+  }, [messages, connection])
 
   if (!projectPath) {
     return <Welcome />
@@ -54,54 +123,20 @@ export function Conversation(): React.JSX.Element {
   }
 
   return (
-    <div className="h-full overflow-auto px-8 py-7">
+    <div
+      ref={scroller}
+      data-chat-scroll
+      className="h-full overflow-auto px-8 py-7"
+      onScroll={() => {
+        const el = scroller.current
+        if (!el) return
+        pinToBottom.current = el.scrollHeight - el.scrollTop - el.clientHeight < 96
+      }}
+    >
       <div className="mx-auto flex max-w-3xl flex-col gap-6">
-        {messages.map((message) =>
-          message.role === 'user' ? (
-            <div key={message.id} className="flex justify-end">
-              <div className="max-w-[78%] rounded-[22px] bg-[var(--bg-user)] px-4 py-3 text-[15px] leading-6 shadow-[inset_0_0_0_1px_rgba(240,215,168,0.12)]">
-                <div className="whitespace-pre-wrap">{message.text}</div>
-              </div>
-            </div>
-          ) : (
-            <div key={message.id} className="flex flex-col gap-3">
-              {message.parts.map((part, index) => {
-                if (part.type === 'thought') {
-                  if (!showThinking) return null
-                  return (
-                    <div
-                      key={index}
-                      className="rounded-xl border-l-2 border-[rgba(240,215,168,0.35)] bg-[rgba(240,215,168,0.05)] px-3 py-2 text-[13px] leading-5 text-[var(--thought)]"
-                    >
-                      {part.text}
-                    </div>
-                  )
-                }
-                if (part.type === 'tool') {
-                  return <ToolCard key={part.toolCallId} part={part} />
-                }
-                if (part.type === 'plan') {
-                  return (
-                    <div
-                      key={index}
-                      className="rounded-xl border border-[var(--border)] bg-[rgba(255,255,255,0.02)] p-3"
-                    >
-                      {part.entries.map((entry, entryIndex) => (
-                        <div key={entryIndex} className="flex gap-2 py-0.5 text-[13px]">
-                          <span className="w-16 shrink-0 text-[var(--text-muted)]">
-                            {entry.status ?? 'pending'}
-                          </span>
-                          <span>{entry.content}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )
-                }
-                return <Markdown key={index} text={part.text} />
-              })}
-            </div>
-          )
-        )}
+        {messages.map((message) => (
+          <MessageRow key={message.id} message={message} showThinking={showThinking} />
+        ))}
         {connection === 'running' ? (
           <div className="flex items-center gap-2 text-[13px] text-[var(--text-muted)]">
             <span className="working">
@@ -112,7 +147,6 @@ export function Conversation(): React.JSX.Element {
             Grok is working
           </div>
         ) : null}
-        <div ref={bottom} />
       </div>
     </div>
   )
@@ -149,10 +183,14 @@ function Welcome(): React.JSX.Element {
             </button>
           ) : null}
         </div>
-        <div className="mt-8 flex gap-6 text-[13px] text-[var(--text-muted)]">
+        <div className="mt-8 flex flex-wrap gap-x-6 gap-y-1 text-[13px] text-[var(--text-muted)]">
+          <div>Grok Desktop {status.appVersion}</div>
           <div>{status.version ?? 'CLI not found'}</div>
           <div>{status.authenticated ? 'Signed in' : 'Not signed in'}</div>
         </div>
+        <p className="mt-3 text-[13px] text-[var(--text-muted)]">
+          Esc or the back arrow leaves a project. ⌘Q quits.
+        </p>
         {recent.length > 0 ? (
           <div className="mt-8">
             <div className="mb-2 text-[11px] uppercase tracking-[0.16em] text-[var(--text-muted)]">
